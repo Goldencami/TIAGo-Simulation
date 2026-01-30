@@ -6,3 +6,29 @@ from webots_ros2_driver.webots_launcher import WebotsLauncher
 from webots_ros2_driver.webots_controller import WebotsController
 
 def generate_launch_description():
+    package_dir = get_package_share_directory('tiago_sim_control')
+    tiago_pkg_dir = get_package_share_directory('webots_ros2_tiago')
+    robot_description_path = os.path.join(tiago_pkg_dir, 'resource', 'tiago_webots.urdf')
+
+    webots = WebotsLauncher(
+        world=os.path.join(package_dir, 'worlds', 'tiago_test.wbt')
+    )
+
+    my_robot_driver = WebotsController(
+        robot_name='my_robot',
+        parameters=[
+            {'robot_description': robot_description_path},
+        ]
+    )
+
+    # This action will kill all nodes once the Webots simulation has exited
+    return LaunchDescription([
+        webots,
+        my_robot_driver,
+        launch.actions.RegisterEventHandler(
+        event_handler=launch.event_handlers.OnProcessExit(
+            target_action=webots,
+            on_exit=[launch.actions.EmitEvent(event=launch.events.Shutdown())],
+        )
+        )
+    ])
