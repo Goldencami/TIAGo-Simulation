@@ -1,3 +1,27 @@
-[submodule "ros2_ws/ros2_ws/src/moveit2"]
-	path = ros2_ws/ros2_ws/src/moveit2
+[submodule "ros2_ws/src/moveit2"]
+	path = ros2_ws/src/moveit2
 	url = https://github.com/moveit/moveit2.git
+[submodule "ros2_ws/src/moveit2_tutorials"]
+	path = ros2_ws/src/moveit2_tutorials
+	url = https://github.com/moveit/moveit2_tutorials.git
+[submodule "ros2_ws/src/launch_param_builder"]
+	path = ros2_ws/src/launch_param_builder
+	url = https://github.com/PickNikRobotics/launch_param_builder.git
+[submodule "ros2_ws/src/moveit_resources"]
+	path = ros2_ws/src/moveit_resources
+	url = https://github.com/moveit/moveit_resources.git
+[submodule "ros2_ws/src/moveit_task_constructor"]
+	path = ros2_ws/src/moveit_task_constructor
+	url = https://github.com/moveit/moveit_task_constructor.git
+[submodule "ros2_ws/src/moveit_visual_tools"]
+	path = ros2_ws/src/moveit_visual_tools
+	url = https://github.com/moveit/moveit_visual_tools.git
+[submodule "ros2_ws/src/rosparam_shortcuts"]
+	path = ros2_ws/src/rosparam_shortcuts
+	url = https://github.com/PickNikRobotics/rosparam_shortcuts.git
+[submodule "ros2_ws/src/srdfdom"]
+	path = ros2_ws/src/srdfdom
+	url = https://github.com/moveit/srdfdom.git
+[submodule "ros2_ws/src/webots_ros2"]
+	path = ros2_ws/src/webots_ros2
+	url = https://github.com/cyberbotics/webots_ros2.git
