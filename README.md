@@ -11,7 +11,7 @@ source ~/TIAGo-Simulation/ros2_ws/install/setup.bash
 ```bash
 cd ~/TIAGo-Simulation/ros2_ws
 colcon build
-source ~/TIAGo-Simulation/ros2_ws/install/setup.bash
+source install/setup.bash
 ```
 
 ## Documentation
