@@ -4,14 +4,14 @@ Simulation of a Tiago Robot moving in front of a table and moving its arm using 
 ## Source the workspace
 ```bash
 cd ~/TIAGo-Simulation/ros2_ws
-source install/local_setup.bash
+source ~/TIAGo-Simulation/ros2_ws/install/setup.bash
 ```
 
 ## Build the workspace
 ```bash
 cd ~/TIAGo-Simulation/ros2_ws
 colcon build
-source install/setup.bash
+source ~/TIAGo-Simulation/ros2_ws/install/setup.bash
 ```
 
 ## Documentation

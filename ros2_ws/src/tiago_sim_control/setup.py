@@ -26,6 +26,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'tiago_base_driver = tiago_sim_control.tiago_base_driver:main',
         ],
     },
 )
