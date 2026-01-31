@@ -25,3 +25,12 @@
 [submodule "ros2_ws/src/webots_ros2"]
 	path = ros2_ws/src/webots_ros2
 	url = https://github.com/cyberbotics/webots_ros2.git
+[submodule "ros2_ws/src/tiago_moveit_config"]
+	path = ros2_ws/src/tiago_moveit_config
+	url = https://github.com/pal-robotics/tiago_moveit_config.git
+[submodule "ros2_ws/src/tiago_robot"]
+	path = ros2_ws/src/tiago_robot
+	url = https://github.com/pal-robotics/tiago_robot.git
+[submodule "ros2_ws/src/launch_pal"]
+	path = ros2_ws/src/launch_pal
+	url = https://github.com/pal-robotics/launch_pal.git

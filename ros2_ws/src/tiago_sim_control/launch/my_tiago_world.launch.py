@@ -9,17 +9,20 @@ from webots_ros2_driver.wait_for_controller_connection import WaitForControllerC
 
 def generate_launch_description():
     package_dir = get_package_share_directory('tiago_sim_control')
-    tiago_pkg_dir = get_package_share_directory('webots_ros2_tiago')
-    robot_description_path = os.path.join(tiago_pkg_dir, 'resource', 'tiago_webots.urdf')
+    tiago_webots_pkg = get_package_share_directory('webots_ros2_tiago')
+
+    tiago_moveit_pkg = get_package_share_directory('tiago_moveit_config')
+    tiago_description_pkg = get_package_share_directory('tiago_description')
+    robot_description_path = os.path.join(tiago_webots_pkg, 'resource', 'tiago_webots.urdf')
+
+    with open(robot_description_path, 'r') as f:
+        robot_description = f.read()
 
     # custom action that allows you to start a Webots simulation instance
     webots = WebotsLauncher(
         world=os.path.join(package_dir, 'worlds', 'tiago_test.wbt'),
         ros2_supervisor=True
     )
-
-    with open(robot_description_path, 'r') as f:
-        robot_description = f.read()
 
     # interface that connects the controller plugin to the target robot
     my_robot_driver = WebotsController(
@@ -43,11 +46,23 @@ def generate_launch_description():
         nodes_to_start=[tiago_base_driver]
     )
 
+    # move group node from MoveIt2
+    move_group = Node(
+        package='tiago_moveit_config',
+        executable='move_group',
+        output='screen',
+        parameters=[{
+            'robot_description': robot_description,
+            'use_sim_time': True
+        }]
+    )
+
     # This action will kill all nodes once the Webots simulation has exited
     return LaunchDescription([
         webots,
         my_robot_driver,
         waiting_nodes,
+        move_group,
         launch.actions.RegisterEventHandler(
             event_handler=launch.event_handlers.OnProcessExit(
                 target_action=webots,

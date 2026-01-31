@@ -1,42 +1,6 @@
 goldencami@goldencami-desktop:~/TIAGo-Simulation/ros2_ws$ ros2 launch tiago_sim_control my_tiago_world.launch.py 
-[INFO] [launch]: All log files can be found below /home/goldencami/.ros/log/2026-01-30-18-40-50-707875-goldencami-desktop-77006
+[INFO] [launch]: All log files can be found below /home/goldencami/.ros/log/2026-01-30-19-57-56-089906-goldencami-desktop-127215
 [INFO] [launch]: Default logging verbosity is set to INFO
 WARNING: No valid Webots directory specified in `ROS2_WEBOTS_HOME` and `WEBOTS_HOME`, fallback to default installation folder /home/goldencami/.ros/webotsR2025a/webots.
-[INFO] [webots-1]: process started with pid [77007]
-[INFO] [webots_controller_TIAGo-2]: process started with pid [77009]
-[webots_controller_TIAGo-2] The specified robot (at /tmp/webots/goldencami/1234/ipc/TIAGo/extern) is not in the list of robots with <extern> controllers, retrying for another 50 seconds...
-[webots_controller_TIAGo-2] [WARN] [1769816454.902314229] [TIAGo]: Passing robot description as a string is deprecated. Provide the URDF or Xacro file path instead.
-[webots_controller_TIAGo-2] [INFO] [1769816454.923395134] [resource_manager]: Initialize hardware 'WebotsControl' 
-[webots_controller_TIAGo-2] [INFO] [1769816454.923650516] [resource_manager]: Successful initialization of hardware 'WebotsControl'
-[webots_controller_TIAGo-2] [INFO] [1769816454.923686492] [resource_manager]: 'configure' hardware 'WebotsControl' 
-[webots_controller_TIAGo-2] [INFO] [1769816454.923691815] [resource_manager]: Successful 'configure' of hardware 'WebotsControl'
-[webots_controller_TIAGo-2] [INFO] [1769816454.923695008] [resource_manager]: 'activate' hardware 'WebotsControl' 
-[webots_controller_TIAGo-2] [INFO] [1769816454.923697742] [resource_manager]: Successful 'activate' of hardware 'WebotsControl'
-[webots_controller_TIAGo-2] [INFO] [1769816454.939682892] [TIAGo]: Controller successfully connected to robot in Webots simulation.
-[INFO] [tiago_base_driver-3]: process started with pid [77076]
-[tiago_base_driver-3] Traceback (most recent call last):
-[tiago_base_driver-3]   File "/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_sim_control/lib/tiago_sim_control/tiago_base_driver", line 33, in <module>
-[tiago_base_driver-3]     sys.exit(load_entry_point('tiago-sim-control==0.0.0', 'console_scripts', 'tiago_base_driver')())
-[tiago_base_driver-3]   File "/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_sim_control/lib/python3.10/site-packages/tiago_sim_control/tiago_base_driver.py", line 30, in main
-[tiago_base_driver-3]     rclpy.spin(node)
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/__init__.py", line 229, in spin
-[tiago_base_driver-3]     executor.spin_once()
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 773, in spin_once
-[tiago_base_driver-3]     self._spin_once_impl(timeout_sec)
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 770, in _spin_once_impl
-[tiago_base_driver-3]     raise handler.exception()
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/task.py", line 254, in __call__
-[tiago_base_driver-3]     self._handler.send(None)
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 463, in handler
-[tiago_base_driver-3]     await call_coroutine(entity, arg)
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 371, in _execute_timer
-[tiago_base_driver-3]     await await_or_execute(tmr.callback)
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/rclpy/executors.py", line 107, in await_or_execute
-[tiago_base_driver-3]     return callback(*args)
-[tiago_base_driver-3]   File "/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_sim_control/lib/python3.10/site-packages/tiago_sim_control/tiago_base_driver.py", line 21, in move_forward
-[tiago_base_driver-3]     velocity.linear.x = 5  # move forward at 0.2 m/s
-[tiago_base_driver-3]   File "/opt/ros/humble/local/lib/python3.10/dist-packages/geometry_msgs/msg/_vector3.py", line 135, in x
-[tiago_base_driver-3]     assert \
-[tiago_base_driver-3] AssertionError: The 'x' field must be of type 'float'
-[ERROR] [tiago_base_driver-3]: process has died [pid 77076, exit code 1, cmd '/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_sim_control/lib/tiago_sim_control/tiago_base_driver --ros-args'].
+[ERROR] [launch]: Caught exception in launch (see debug for traceback): package 'tiago_moveit_config' found at '/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_moveit_config', but libexec directory '/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_moveit_config/lib/tiago_moveit_config' does not exist
 
