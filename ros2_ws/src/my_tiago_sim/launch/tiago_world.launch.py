@@ -6,53 +6,31 @@ from ament_index_python.packages import get_package_share_directory
 from launch_pal.include_utils import include_scoped_launch_py_description
 
 def generate_launch_description():
+    # Path to your package
     pkg_dir = get_package_share_directory('my_tiago_sim')
     world_path = os.path.join(pkg_dir, 'worlds', 'sim_world.world')
 
+    # Declare a launch argument for flexibility
     world_arg = DeclareLaunchArgument(
-        'world_name',
+        'world',
         default_value=world_path,
-        description='Path to the Ignition world file'
+        description='Full path to the Gazebo world file'
     )
 
-    # launch Ignition Gazebo in VM
-    # ign_gazebo_cmd = ExecuteProcess(
-    #     cmd=[
-    #         'ign', 'gazebo',
-    #         LaunchConfiguration('world'),
-    #         '-r',
-    #         '-v', '4',
-    #         '--render-engine', 'ogre'
-    #     ],
-    #     output='screen'
-    # )
-
-    # spawn_tiago = Node(
-    #     package='ros_ign_gazebo',
-    #     executable='create',
-    #     arguments=[
-    #         '-topic', 'robot_description',
-    #         '-name', 'tiago',
-    #         '-x', '3', '-y', '3', '-z', '0.0'
-    #     ],
-    #     output='screen'
-    # )
-
-    # Include the official Tiago Gazebo launch
-    tiago_gazebo_launch = include_scoped_launch_py_description(
-        pkg_name='tiago_gazebo',
-        paths=['launch', 'tiago_gazebo.launch.py'],
+    # Include the TIAGo Gazebo launch file
+    tiago_launch = include_scoped_launch_py_description(
+        os.path.join(
+            get_package_share_directory('tiago_gazebo'),
+            'launch',
+            'tiago_gazebo.launch.py'
+        ),
         launch_arguments={
-            'world_name': LaunchConfiguration('world_name'),
-            'navigation': 'False',
-            'moveit': 'False',
-            'rviz': 'False',
-            'gzclient': 'True',
-            'is_public_sim': 'False'
-        }
+            'is_public_sim': 'True',
+            'world_name': LaunchConfiguration('world')
+        }.items()
     )
 
     return LaunchDescription([
         world_arg,
-        tiago_gazebo_launch
+        tiago_launch
     ])
