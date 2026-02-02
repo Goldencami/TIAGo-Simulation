@@ -7,7 +7,7 @@ from launch_pal.include_utils import include_scoped_launch_py_description
 
 def generate_launch_description():
     pkg_dir = get_package_share_directory('my_tiago_sim')
-    world_path = os.path.join(pkg_dir, 'worlds', 'sim_world.sdf')
+    world_path = os.path.join(pkg_dir, 'worlds', 'sim_world.world')
 
     world_arg = DeclareLaunchArgument(
         'world_name',
