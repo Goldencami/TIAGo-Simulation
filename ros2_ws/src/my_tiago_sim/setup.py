@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'tiago_sim_control'
+package_name = 'my_tiago_sim'
 
 setup(
     name=package_name,
@@ -9,14 +9,14 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name + '/launch', ['launch/my_tiago_world.launch.py']),
-        ('share/' + package_name + '/worlds', ['worlds/tiago_test.wbt']),
+        ('share/' + package_name + '/launch', ['launch/tiago_world.launch.py']),
+        ('share/' + package_name + '/worlds', ['worlds/sim_world.world']),
         ('share/' + package_name, ['package.xml']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
     maintainer='goldencami',
-    maintainer_email='goldencami@todo.todo',
+    maintainer_email='camila.guzman023@gmail.com',
     description='TODO: Package description',
     license='Apache-2.0',
     extras_require={
@@ -26,7 +26,6 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'tiago_base_driver = tiago_sim_control.tiago_base_driver:main',
         ],
     },
 )

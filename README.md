@@ -8,6 +8,7 @@ sudo apt-get install git python3-vcstool python3-rosdep python3-colcon-common-ex
 sudo rosdep init
 rosdep update
 rosdep install --from-paths src -y --ignore-src
+sudo apt install ros-humble-gazebo-ros-pkgs ros-humble-gazebo-ros2-control -y
 ```
 
 ## Source the workspace
