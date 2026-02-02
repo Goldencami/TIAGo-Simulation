@@ -9,9 +9,6 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name + '/launch', ['launch/tiago_world.launch.py']),
-        ('share/' + package_name + '/worlds', ['worlds/sim_world.world']),
-        ('share/' + package_name + '/worlds', ['worlds/sim_world.sdf']),
         ('share/' + package_name, ['package.xml']),
     ],
     install_requires=['setuptools'],
@@ -27,6 +24,7 @@ setup(
     },
     entry_points={
         'console_scripts': [
+            'tiago_base_control = my_tiago_sim.tiago_base_control:main',
         ],
     },
 )

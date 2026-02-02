@@ -1,36 +1,55 @@
 import os
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument
+from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
+from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
-from launch_pal.include_utils import include_scoped_launch_py_description
+from launch.actions import ExecuteProcess
 
 def generate_launch_description():
-    # Path to your package
-    pkg_dir = get_package_share_directory('my_tiago_sim')
-    world_path = os.path.join(pkg_dir, 'worlds', 'sim_world.world')
 
-    # Declare a launch argument for flexibility
     world_arg = DeclareLaunchArgument(
-        'world',
-        default_value=world_path,
-        description='Full path to the Gazebo world file'
+        'world_name',
+        default_value='sim_world',
+        description='Name of the world in my package/worlds (without .world)'
     )
 
-    # Include the TIAGo Gazebo launch file
-    tiago_launch = include_scoped_launch_py_description(
-        os.path.join(
-            get_package_share_directory('tiago_gazebo'),
-            'launch',
-            'tiago_gazebo.launch.py'
-        ),
-        launch_arguments={
-            'is_public_sim': 'True',
-            'world_name': LaunchConfiguration('world')
-        }.items()
-    )
+    def spawn_tiago(context, *args, **kwargs):
+        world_name = LaunchConfiguration('world_name').perform(context)
+        world_path = os.path.join(
+            get_package_share_directory('my_tiago_sim'),
+            'worlds',
+            world_name + '.world'
+        )
+
+        # Start Gazebo server
+        gzserver = ExecuteProcess(
+            cmd=['gzserver', world_path, '--verbose'],
+            output='screen'
+        )
+
+        # Start Gazebo client
+        gzclient = ExecuteProcess(
+            cmd=['gzclient'],
+            output='screen'
+        )
+
+        # Spawn TIAGo URDF
+        spawn_robot = Node(
+            package='gazebo_ros',
+            executable='spawn_entity.py',
+            arguments=[
+                '-entity', 'tiago',
+                '-file', os.path.join(get_package_share_directory('tiago_robot'),
+                                      'robots', 'tiago.urdf.xacro'),
+                '-x', '0', '-y', '0', '-z', '0.0'
+            ],
+            output='screen'
+        )
+
+        return [gzserver, gzclient, spawn_robot]
 
     return LaunchDescription([
         world_arg,
-        tiago_launch
+        OpaqueFunction(function=spawn_tiago)
     ])
