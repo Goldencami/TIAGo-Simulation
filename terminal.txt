@@ -1,6 +1,0 @@
-goldencami@goldencami-desktop:~/TIAGo-Simulation/ros2_ws$ ros2 launch tiago_sim_control my_tiago_world.launch.py 
-[INFO] [launch]: All log files can be found below /home/goldencami/.ros/log/2026-01-30-19-57-56-089906-goldencami-desktop-127215
-[INFO] [launch]: Default logging verbosity is set to INFO
-WARNING: No valid Webots directory specified in `ROS2_WEBOTS_HOME` and `WEBOTS_HOME`, fallback to default installation folder /home/goldencami/.ros/webotsR2025a/webots.
-[ERROR] [launch]: Caught exception in launch (see debug for traceback): package 'tiago_moveit_config' found at '/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_moveit_config', but libexec directory '/home/goldencami/TIAGo-Simulation/ros2_ws/install/tiago_moveit_config/lib/tiago_moveit_config' does not exist
-

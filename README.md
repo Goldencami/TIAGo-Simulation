@@ -10,6 +10,7 @@ sudo apt-get install git python3-vcstool python3-rosdep python3-colcon-common-ex
 sudo rosdep init
 rosdep update
 rosdep install --from-paths src -y --ignore-src
+sudo apt install ros-humble-ros-ign-gazebo
 ```
 
 ## Source the workspace
@@ -23,6 +24,11 @@ source install/setup.bash
 cd ~/TIAGo-Simulation/ros2_ws
 colcon build
 source install/setup.bash
+```
+
+## Open in VM
+```bash
+ign gazebo /home/goldencami/TIAGo-Simulation/ros2_ws/src/my_tiago_sim/worlds/sim_world.sdf -r -v 4 --render-engine ogre
 ```
 
 ## Documentation

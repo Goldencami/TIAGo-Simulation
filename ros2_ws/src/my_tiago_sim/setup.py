@@ -11,6 +11,7 @@ setup(
             ['resource/' + package_name]),
         ('share/' + package_name + '/launch', ['launch/tiago_world.launch.py']),
         ('share/' + package_name + '/worlds', ['worlds/sim_world.world']),
+        ('share/' + package_name + '/worlds', ['worlds/sim_world.sdf']),
         ('share/' + package_name, ['package.xml']),
     ],
     install_requires=['setuptools'],
