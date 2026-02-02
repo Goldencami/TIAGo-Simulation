@@ -4,11 +4,12 @@ Simulation of a Tiago Robot moving in front of a table and moving its arm using 
 ## Dependencies
 ```bash
 sudo apt-get update
+sudo apt install ros-humble-gazebo-ros-pkgs ros-humble-gazebo-ros2-control -y
+sudo apt install ros-humble-xacro
 sudo apt-get install git python3-vcstool python3-rosdep python3-colcon-common-extensions
 sudo rosdep init
 rosdep update
 rosdep install --from-paths src -y --ignore-src
-sudo apt install ros-humble-gazebo-ros-pkgs ros-humble-gazebo-ros2-control -y
 ```
 
 ## Source the workspace

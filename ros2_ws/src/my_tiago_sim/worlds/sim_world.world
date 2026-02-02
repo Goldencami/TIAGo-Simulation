@@ -91,10 +91,10 @@
       <heading_deg>0</heading_deg>
     </spherical_coordinates>
     <state world_name='default'>
-      <sim_time>845 313000000</sim_time>
-      <real_time>846 444712848</real_time>
-      <wall_time>1770002994 161528274</wall_time>
-      <iterations>845313</iterations>
+      <sim_time>1049 493000000</sim_time>
+      <real_time>122 345694440</real_time>
+      <wall_time>1770003464 727831112</wall_time>
+      <iterations>122200</iterations>
       <model name='ground_plane'>
         <pose>0 0 0 0 -0 0</pose>
         <scale>1 1 1</scale>
@@ -106,7 +106,7 @@
         </link>
       </model>
       <model name='room'>
-        <pose>0 0 0 0 -0 0</pose>
+        <pose>0 -0 0 0 -0 0</pose>
         <scale>1 1 1</scale>
         <link name='Wall_0'>
           <pose>-7.05 -0.247499 0 0 0 -1.5708</pose>
@@ -128,6 +128,16 @@
         </link>
         <link name='Wall_3'>
           <pose>0 3.5525 0 0 -0 3.14159</pose>
+          <velocity>0 0 0 0 -0 0</velocity>
+          <acceleration>0 0 0 0 -0 0</acceleration>
+          <wrench>0 0 0 0 -0 0</wrench>
+        </link>
+      </model>
+      <model name='table'>
+        <pose>0 0 0 0 -0 1.5708</pose>
+        <scale>1 1 1</scale>
+        <link name='link'>
+          <pose>0 0 0 0 -0 1.5708</pose>
           <velocity>0 0 0 0 -0 0</velocity>
           <acceleration>0 0 0 0 -0 0</acceleration>
           <wrench>0 0 0 0 -0 0</wrench>
@@ -323,10 +333,71 @@
     </model>
     <gui fullscreen='0'>
       <camera name='user_camera'>
-        <pose>16.5072 -5.43225 18.9821 -0 0.819643 2.82419</pose>
+        <pose>40.7942 -22.5715 53.6476 -0 0.819643 2.82419</pose>
         <view_controller>orbit</view_controller>
         <projection_type>perspective</projection_type>
       </camera>
     </gui>
+    <model name='table'>
+      <static>1</static>
+      <link name='link'>
+
+        <collision name='surface_collision'>
+          <pose>0 0 1 0 -0 0</pose>
+          <geometry><box><size>1.5 0.8 0.03</size></box></geometry>
+        </collision>
+
+        <visual name='surface_visual'>
+          <pose>0 0 1 0 -0 0</pose>
+          <geometry><box><size>1.5 0.8 0.03</size></box></geometry>
+        </visual>
+
+        <!-- Front left -->
+        <collision name='front_left_leg_collision'>
+          <pose>0.68 0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </collision>
+
+        <visual name='front_left_leg_visual'>
+          <pose>0.68 0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </visual>
+
+        <!-- Front right -->
+        <collision name='front_right_leg_collision'>
+          <pose>0.68 -0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </collision>
+
+        <visual name='front_right_leg_visual'>
+          <pose>0.68 -0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </visual>
+
+        <!-- Back right -->
+        <collision name='back_right_leg_collision'>
+          <pose>-0.68 -0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </collision>
+
+        <visual name='back_right_leg_visual'>
+          <pose>-0.68 -0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </visual>
+
+        <!-- Back left -->
+        <collision name='back_left_leg_collision'>
+          <pose>-0.68 0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </collision>
+
+        <visual name='back_left_leg_visual'>
+          <pose>-0.68 0.38 0.5 0 -0 0</pose>
+          <geometry><cylinder><radius>0.02</radius><length>1</length></cylinder></geometry>
+        </visual>
+
+      </link>
+      <pose>0.230631 -0.066069 0 0 -0 0</pose>
+    </model>
   </world>
 </sdf>
