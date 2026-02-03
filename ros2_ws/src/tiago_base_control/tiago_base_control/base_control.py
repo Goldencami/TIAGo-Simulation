@@ -9,7 +9,7 @@ import math
 # Parameters
 FINAL_THETA = 0.0 # radians
 MAX_SPEED = 0.7 # meters per second
-DIST_THR = 0.10 # meters
+DIST_THR = 0.10 # used to know when TIAGo is close enough to target
 ANGLE_THR = 0.05 # radians
 STOP_DIST = 0.45 # meters
 
@@ -17,7 +17,7 @@ class TiagoBaseControl(Node):
     def __init__(self):
         super().__init__('tiago_base_control')
 
-        # Subscribers
+        # subscribe to TIAGo's real position in world
         self.odom_sub = self.create_subscription(
             Odometry,
             '/ground_truth_odom',
@@ -25,8 +25,16 @@ class TiagoBaseControl(Node):
             10
         )
 
+        # subscribe scan's
+        self.subscription = self.create_subscription(
+            LaserScan,
+            '/scan_raw',
+            self.tiago_scan_callback,
+            10
+        )
+
         # subscription to arm movement status
-        self.arm_status_sub = self.create_subscription(
+        self.scan_sub = self.create_subscription(
             Bool,
             '/arm_movement_status',
             self.arm_status_callback,
@@ -43,7 +51,7 @@ class TiagoBaseControl(Node):
         self.state = 'rotate' # forward, rotate, final_rotate
         self.arm_cmd_sent = False
         self.arm_done = False
-        self.drifting = 1.0
+        self.drifting = 1.0 # value 
         self.target = (-0.600035, 0.013528)  # goal
 
         self.timer = self.create_timer(0.1, self.state_machine_loop)
@@ -57,6 +65,9 @@ class TiagoBaseControl(Node):
         if msg.data:
             self.arm_done = True
             self.get_logger().info('Arm movement completed.')
+
+    def tiago_scan_callback(self, msg):
+        self.scan_data = msg.ranges
 
     def dest_heading(self):
         x, y = self.position
@@ -77,7 +88,7 @@ class TiagoBaseControl(Node):
         # normalize angle to [-pi, pi]
         theta_err = math.atan2(math.sin(theta_err), math.cos(theta_err))
 
-        twist = Twist()
+        twist = Twist() # TIAGo velocity command
 
         # stop moving and start arm movement to avoid collidng with table
         if dist_diff < STOP_DIST and not self.arm_cmd_sent:
@@ -105,20 +116,23 @@ class TiagoBaseControl(Node):
             twist.linear.x = 0.0
             twist.angular.z = 0.0
             self.state = 'final_rotate'
-            self.get_logger().info('Arrived at target!')
 
         # rotate TIAGo to face correct direction when moving towards table
         if self.state == 'rotate':
-            # if theta error is significant, rotate
+            # if theta error is significant, rotate while not moving forward
             if abs(theta_err) > ANGLE_THR:
                 twist.linear.x = 0.0
-                twist.angular.z = 0.5 * MAX_SPEED if theta_err > 0 else -0.5 * MAX_SPEED
+                # rotate left or right depending on margin of error
+                if theta_err > 0:
+                    twist.angular.z = 0.5 * MAX_SPEED
+                else:
+                    twist.angular.z = -0.5 * MAX_SPEED
             else:
                 self.state = 'forward'
 
         # move TIAGo towards table
         elif self.state == 'forward':
-            self.drifting = 0.4 if dist_diff < 3.5 else 1.0
+            self.drifting = 0.4 if dist_diff < 3.5 else 1.0 # used for TIAGo to keep moving forward or fix rotation (if arrived to goal)
             if abs(theta_err) > self.drifting:
                 self.state = 'rotate'
             else:
@@ -133,11 +147,15 @@ class TiagoBaseControl(Node):
             if abs(final_err) > ANGLE_THR:
                 # rotate to final angle
                 twist.linear.x = 0.0
-                twist.angular.z = 0.3 * MAX_SPEED if final_err > 0 else -0.3 * MAX_SPEED
+                # rotate left or right depending on margin of error
+                if final_err > 0:
+                    twist.angular.z = 0.3 * MAX_SPEED
+                else:
+                    twist.angular.z = -0.3 * MAX_SPEED
             else:
                 twist.linear.x = 0.0
                 twist.angular.z = 0.0
-                self.get_logger().info('Final rotation done, stopping robot.')
+                self.get_logger().info('Arrived at target! Stopping robot.')
                 self.timer.cancel()
 
         self.cmd_pub.publish(twist)
