@@ -32,9 +32,14 @@ source install/setup.bash
 ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=sim_world1
 ```
 
-### Run the driver
+### Launch exercise 1
 ```bash
-ros2 run my_tiago_sim tiago_base_control
+ros2 launch launch_sim start_exercise1.launch.py
+```
+
+### Launch exercise 2
+```bash
+ros2 launch launch_sim start_exercise1.launch.py
 ```
 
 ## Resources
