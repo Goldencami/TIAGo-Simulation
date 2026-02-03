@@ -1,30 +1,3 @@
-[submodule "ros2_ws/src/moveit2"]
-	path = ros2_ws/src/moveit2
-	url = https://github.com/moveit/moveit2.git
-[submodule "ros2_ws/src/moveit2_tutorials"]
-	path = ros2_ws/src/moveit2_tutorials
-	url = https://github.com/moveit/moveit2_tutorials.git
-[submodule "ros2_ws/src/launch_param_builder"]
-	path = ros2_ws/src/launch_param_builder
-	url = https://github.com/PickNikRobotics/launch_param_builder.git
-[submodule "ros2_ws/src/moveit_resources"]
-	path = ros2_ws/src/moveit_resources
-	url = https://github.com/moveit/moveit_resources.git
-[submodule "ros2_ws/src/moveit_task_constructor"]
-	path = ros2_ws/src/moveit_task_constructor
-	url = https://github.com/moveit/moveit_task_constructor.git
-[submodule "ros2_ws/src/moveit_visual_tools"]
-	path = ros2_ws/src/moveit_visual_tools
-	url = https://github.com/moveit/moveit_visual_tools.git
-[submodule "ros2_ws/src/rosparam_shortcuts"]
-	path = ros2_ws/src/rosparam_shortcuts
-	url = https://github.com/PickNikRobotics/rosparam_shortcuts.git
-[submodule "ros2_ws/src/srdfdom"]
-	path = ros2_ws/src/srdfdom
-	url = https://github.com/moveit/srdfdom.git
-[submodule "ros2_ws/src/webots_ros2"]
-	path = ros2_ws/src/webots_ros2
-	url = https://github.com/cyberbotics/webots_ros2.git
 [submodule "ros2_ws/src/tiago_moveit_config"]
 	path = ros2_ws/src/tiago_moveit_config
 	url = https://github.com/pal-robotics/tiago_moveit_config.git
@@ -34,3 +7,39 @@
 [submodule "ros2_ws/src/launch_pal"]
 	path = ros2_ws/src/launch_pal
 	url = https://github.com/pal-robotics/launch_pal.git
+[submodule "ros2_ws/src/pal_gripper"]
+	path = ros2_ws/src/pal_gripper
+	url = https://github.com/pal-robotics/pal_gripper.git
+[submodule "ros2_ws/src/pal_hey5"]
+	path = ros2_ws/src/pal_hey5
+	url = https://github.com/pal-robotics/pal_hey5.git
+[submodule "ros2_ws/src/pal_navigation_cfg_public"]
+	path = ros2_ws/src/pal_navigation_cfg_public
+	url = https://github.com/pal-robotics/pal_navigation_cfg_public.git
+[submodule "ros2_ws/src/pal_robotiq_gripper"]
+	path = ros2_ws/src/pal_robotiq_gripper
+	url = https://github.com/pal-robotics/pal_robotiq_gripper.git
+[submodule "ros2_ws/src/pal_urdf_utils"]
+	path = ros2_ws/src/pal_urdf_utils
+	url = https://github.com/pal-robotics/pal_urdf_utils.git
+[submodule "ros2_ws/src/play_motion2"]
+	path = ros2_ws/src/play_motion2
+	url = https://github.com/pal-robotics/play_motion2.git
+[submodule "ros2_ws/src/pmb2_navigation"]
+	path = ros2_ws/src/pmb2_navigation
+	url = https://github.com/pal-robotics/pmb2_navigation.git
+[submodule "ros2_ws/src/pmb2_robot"]
+	path = ros2_ws/src/pmb2_robot
+	url = https://github.com/pal-robotics/pmb2_robot.git
+[submodule "os2_ws/src/tiago_navigation"]
+	path = os2_ws/src/tiago_navigation
+	url = https://github.com/pal-robotics/tiago_navigation.git
+[submodule "ros2_ws/src/tiago_navigation"]
+	path = ros2_ws/src/tiago_navigation
+	url = https://github.com/pal-robotics/tiago_navigation.git
+[submodule "ros2_ws/src/tiago_simulation"]
+	path = ros2_ws/src/tiago_simulation
+	url = https://github.com/pal-robotics/tiago_simulation.git
+[submodule "ros2_ws/src/urdf_test"]
+	path = ros2_ws/src/urdf_test
+	url = https://github.com/pal-robotics/urdf_test.git
