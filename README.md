@@ -16,7 +16,7 @@ sudo apt install ros-humble-ros-ign-gazebo
 ## Add world
 This project uses PAL Robotic's tiago_gazebo, their script launches a world stored inside `pal_gazebo_worlds`. 
 
-To be able to launch our simulation, you must copy the custome world from `launch_sim/worlds/sim_world1.world` and paste it inside `pal_gazebo_worlds/worlds`.
+To be able to launch our simulation, you must copy the custome worlds from `launch_sim/worlds` and paste it inside `pal_gazebo_worlds/worlds`.
 
 ## Source the workspace
 ```bash
@@ -35,7 +35,7 @@ source install/setup.bash
 ## Simulation
 ### Start Tiago, simulated in Gazebo Harmonic
 ```bash
-ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=sim_world1
+ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=sim_world
 ```
 
 ### Launch exercise
