@@ -50,10 +50,6 @@ Pick one of the two exercises to launch.
 ros2 launch launch_sim start_exercise1.launch.py
 ```
 
-```bash
-ros2 launch launch_sim start_exercise2.launch.py
-```
-
 ## Logic
 The following diagram shows how obstacle avoiding and navigation towards the goal were implemented
 ![Image](https://github.com/user-attachments/assets/1c4adccd-84c4-4ec4-bf8e-8dc32425948b)
