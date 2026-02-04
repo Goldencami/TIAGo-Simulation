@@ -39,6 +39,41 @@ public:
     }
 
 private:
+    double deg2rad(double deg) {
+        return deg * M_PI / 180.0;
+    }
+
+    void pickUpPosition() {
+        if (!arm_torso_ || !gripper_) {
+            RCLCPP_ERROR(this->get_logger(), "MoveIt interfaces not initialized!");
+            return;
+        }
+
+        // joint goal positions
+        std::map<std::string, double> joint_goal;
+        joint_goal["torso_lift_joint"] = 0.340;
+        joint_goal["arm_1_joint"] = deg2rad(4.0);
+        joint_goal["arm_2_joint"] = deg2rad(54.0);
+        joint_goal["arm_3_joint"] = deg2rad(-87.0);
+        joint_goal["arm_4_joint"] = deg2rad(78.0);
+        joint_goal["arm_5_joint"] = deg2rad(54.0);
+        joint_goal["arm_6_joint"] = deg2rad(-80.0);
+        joint_goal["arm_7_joint"] = deg2rad(115.0);
+
+        arm_torso_->setJointValueTarget(joint_goal);
+        arm_torso_->move();
+
+        moveit::planning_interface::MoveGroupInterface::Plan torso_plan;
+        bool torso_success = (arm_torso_->plan(torso_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        if (torso_success) {
+            arm_torso_->execute(torso_plan);
+            RCLCPP_INFO(this->get_logger(), "Arm moved above the object successfully.");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Failed to plan path to target.");
+        }
+
+    }
+
     void pickObject(const geometry_msgs::msg::PoseStamped &object_pose) {
         if (!arm_torso_ || !gripper_) {
             RCLCPP_ERROR(this->get_logger(), "MoveIt interfaces not initialized!");
@@ -46,12 +81,6 @@ private:
         }
 
         RCLCPP_INFO(this->get_logger(), "Starting pick operation...");
-
-        // extend torso
-        std::map<std::string, double> torso_goal;
-        torso_goal["torso_lift_joint"] = 0.340; // max torso lift
-        arm_torso_->setJointValueTarget(torso_goal);
-        arm_torso_->move();
 
         // open gripper first
         std::map<std::string, double> gripper_goal;
@@ -78,11 +107,10 @@ private:
         target_pose.pose.orientation.w = 0.7071;
 
         arm_torso_->setPoseTarget(target_pose);
-
-        moveit::planning_interface::MoveGroupInterface::Plan torso_plan;
-        bool torso_success = (arm_torso_->plan(torso_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        if (torso_success) {
-            arm_torso_->execute(torso_plan);
+        moveit::planning_interface::MoveGroupInterface::Plan arm_plan;
+        bool arm_success = (arm_torso_->plan(arm_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
+        if (arm_success) {
+            arm_torso_->execute(arm_plan);
             RCLCPP_INFO(this->get_logger(), "Arm moved above the object successfully.");
         } else {
             RCLCPP_ERROR(this->get_logger(), "Failed to plan path to target.");
@@ -116,6 +144,7 @@ private:
                     object_pose.pose.position.z
                 );
 
+                pickUpPosition();
                 pickObject(object_pose);
                 picked_ = true; // avoid planning repeatedly
                 break;
