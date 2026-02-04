@@ -38,14 +38,12 @@ source install/setup.bash
 ```
 
 ## Simulation
-### Start Tiago, simulated in Gazebo Harmonic
+### Start TIAGo Simulation
 ```bash
-ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=sim_world
+ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=sim_world_objects
 ```
 
 ### Launch exercise
-Pick one of the two exercises to launch.
-
 ```bash
 ros2 launch launch_sim start_exercise1.launch.py
 ```
