@@ -45,7 +45,7 @@ ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=
 
 ### Launch exercise
 ```bash
-ros2 launch launch_sim start_exercise1.launch.py
+ros2 launch launch_sim start_exercise.launch.py
 ```
 
 ## Logic
