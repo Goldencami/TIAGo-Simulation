@@ -21,16 +21,15 @@ public:
         RCLCPP_INFO(this->get_logger(), "GripperControl node created.");
     }
 
-    void initializeMoveGroup() {
-        // Use 'this' pointer; no shared_from_this needed
-        arm_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(this, "arm");
-        gripper_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(this, "gripper");
+    void initializeMoveGroup(const rclcpp::Node::SharedPtr &node_shared) {
+        arm_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_shared, "arm");
+        gripper_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_shared, "gripper");
 
         RCLCPP_INFO(this->get_logger(), "MoveIt interfaces initialized.");
     }
 
-    void modelCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg)
-    {
+private:
+    void modelCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg) {
         for (size_t i = 0; i < msg->name.size(); i++) {
             if (msg->name[i] == "cocacola") {
                 object_pose_.header.frame_id = "odom";
@@ -47,8 +46,6 @@ public:
         }
     }
 
-
-private:
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> arm_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> gripper_;
