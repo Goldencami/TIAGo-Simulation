@@ -52,6 +52,9 @@ ros2 launch launch_sim start_exercise.launch.py
 The following diagram shows how obstacle avoiding and navigation towards the goal were implemented
 ![Image](https://github.com/user-attachments/assets/1c4adccd-84c4-4ec4-bf8e-8dc32425948b)
 
+## State Machine
+![Image](https://github.com/user-attachments/assets/7b739ce9-02d6-4f49-8fe6-43665d27be8f)
+
 ## Resources
 - [TIAGo ROS 2 Simulation](https://github.com/pal-robotics/tiago_simulation/tree/humble-devel)
 - [Setting up a robot simulation](https://docs.ros.org/en/humble/Tutorials/Advanced/Simulators/Webots/Setting-Up-Simulation-Webots-Basic.html)
