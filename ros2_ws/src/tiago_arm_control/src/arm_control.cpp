@@ -51,6 +51,9 @@ class MoveArmControl : public rclcpp::Node {
 
             move_group_->setJointValueTarget(joint_goal);
 
+            move_group_->setMaxVelocityScalingFactor(0.5); // 50% of max speed
+            move_group_->setMaxAccelerationScalingFactor(0.5); // 50% of max acceleration
+
             moveit::planning_interface::MoveGroupInterface::Plan my_plan;
             bool success = (move_group_->plan(my_plan) == moveit::core::MoveItErrorCode::SUCCESS);
 

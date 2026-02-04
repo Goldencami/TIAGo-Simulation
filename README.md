@@ -1,6 +1,11 @@
 # TIAGo-Simulation
 Simulation of a Tiago Robot moving in front of a table and moving its arm using ROS2 Humble
 
+## Clone submodules
+```bash
+git submodule update --init --recursive
+```
+
 ## Dependencies
 ```bash
 sudo apt-get update
@@ -57,3 +62,4 @@ The following diagram shows how obstacle avoiding and navigation towards the goa
 - [TIAGo ROS 2 Simulation](https://github.com/pal-robotics/tiago_simulation/tree/humble-devel)
 - [Setting up a robot simulation](https://docs.ros.org/en/humble/Tutorials/Advanced/Simulators/Webots/Setting-Up-Simulation-Webots-Basic.html)
 - [Motion planning](https://www.youtube.com/watch?v=G0T6IzXM4xQ&list=PLaxxZSuubhFfIoeeT1M74CN2vFaWP4vFu&index=27)
+- [Laser Scan](https://docs.ros.org/en/ros2_packages/humble/api/sensor_msgs/msg/LaserScan.html?utm_source=chatgpt.com)
