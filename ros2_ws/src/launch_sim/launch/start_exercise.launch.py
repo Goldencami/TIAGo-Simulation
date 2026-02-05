@@ -16,10 +16,10 @@ def generate_launch_description():
         output='screen'
     )
 
-    tiago_gripper_control_node = Node(
+    tiago_grab_pose_control_node = Node(
         package='tiago_arm_control',
-        executable='gripper_control',
-        name='gripper_control',
+        executable='grab_pose_control',
+        name='grab_pose_control',
         output='screen'
     )
 
@@ -33,6 +33,6 @@ def generate_launch_description():
     return LaunchDescription([
         tiago_lift_control_node,
         tiago_retract_control_node,
-        tiago_gripper_control_node,
+        tiago_grab_pose_control_node,
         tiago_base_node
     ])

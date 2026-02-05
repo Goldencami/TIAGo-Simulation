@@ -47,8 +47,8 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
-add_executable(gripper_control src/gripper_control.cpp)
-ament_target_dependencies(gripper_control
+add_executable(grab_pose_control src/grab_pose_control.cpp)
+ament_target_dependencies(grab_pose_control
   rclcpp
   std_msgs
   moveit_ros_planning_interface
@@ -59,7 +59,7 @@ ament_target_dependencies(gripper_control
 )
 
 install(
-  TARGETS gripper_control
+  TARGETS grab_pose_control
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

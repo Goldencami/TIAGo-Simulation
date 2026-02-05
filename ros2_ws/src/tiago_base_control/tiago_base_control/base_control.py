@@ -24,12 +24,12 @@ class TiagoBaseControl(Node):
         # clients
         self.lift_arm_client = self.create_client(Trigger, 'lift_arm')
         # self.retract_arm_client = self.create_client(Trigger, 'retract_arm')
-        self.gripper_client = self.create_client(Trigger, 'gripper')
+        self.grab_pose_client = self.create_client(Trigger, 'grab_pose')
         self.place_obj_client = self.create_client(Trigger, 'place_obj')
 
         # pending requests
         self.lift_future = None
-        self.grab_future = None
+        self.grab_pose_future = None
         self.place_future = None
 
 
@@ -41,12 +41,12 @@ class TiagoBaseControl(Node):
 
         self.tasks = [
             {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
-            {'goal': (5.451085, -2.887168, 0), 'action': 'pick_can'},
-            {'goal': (6.628535, -1.895496, -1.575030), 'action': 'place_can'},
-            {'goal': (5.451085, -3.305861, 0), 'action': 'pick_cup'},
+            {'goal': (5.628615, -2.887168, 0), 'action': 'pick_can'},
+            {'goal': (6.628535, -2.607165, -1.575030), 'action': 'place_can'},
+            {'goal': (5.628615, -3.305861, 0), 'action': 'pick_cup'},
             {'goal': (6.366570, -1.895496, -1.575030), 'action': 'place_cup'}
         ]
-        self.current_task_idx = 0
+        self.current_task_idx = 1 # set to 0 after done testing
         self.target = self.tasks[self.current_task_idx]['goal']
         # new target position when going backwards
         self.backTargetSet = False
@@ -115,21 +115,21 @@ class TiagoBaseControl(Node):
     #         self.arm_future = self.retract_arm_client.call_async(request)
     #         self.get_logger().info("Waiting for arm to finish moving...")
 
-    def grab_request(self):
-        if self.grab_future:
-            if self.grab_future.done():
-                result = self.grab_future.result()
+    def grab_pose_request(self):
+        if self.grab_pose_future:
+            if self.grab_pose_future.done():
+                result = self.grab_pose_future.result()
                 if result.success:
-                    self.isObjectPicked = True
-                self.grab_future = None
+                    self.isObjectPicked = False
+                self.grab_pose_future = None
             return
 
-        if not self.gripper_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Waiting for gripper service...')
+        if not self.grab_pose_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Waiting for grab_pose service...')
             return
 
         req = Trigger.Request()
-        self.grab_future = self.gripper_client.call_async(req)
+        self.grab_pose_future = self.grab_pose_client.call_async(req)
 
     def place_obj_request(self):
         if self.place_future:
@@ -235,7 +235,7 @@ class TiagoBaseControl(Node):
         elif self.state == 'PICKUP':
             # keep requesting or checking until it's completed
             if not self.isObjectPicked:
-                self.grab_request()  # sends request or checks future
+                self.grab_pose_request()  # sends request or checks future
                 return  # stay in PICKUP until done
 
             # once done:
