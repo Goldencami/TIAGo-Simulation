@@ -42,9 +42,9 @@ class TiagoBaseControl(Node):
         self.tasks = [
             {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
             {'goal': (5.451085, -2.887168, 0), 'action': 'pick_can'},
-            {'goal': (1.0, 1.0, 0), 'action': 'place_can'}, # to decide
+            {'goal': (1.0, 1.0, -1.575030), 'action': 'place_can'}, # to decide
             {'goal': (5.451085, -3.305861, 0), 'action': 'pick_cup'},
-            {'goal': (1.0, 1.0, 0), 'action': 'place_cup'} # to decide
+            {'goal': (1.0, 1.0, -1.575030), 'action': 'place_cup'} # to decide
         ]
         self.current_task_idx = 0
         self.target = self.tasks[self.current_task_idx]['goal']
