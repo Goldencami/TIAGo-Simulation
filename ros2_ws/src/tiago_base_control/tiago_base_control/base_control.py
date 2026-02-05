@@ -4,34 +4,34 @@ from rclpy.node import Node
 from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
+from std_srvs.srv import Trigger
 import math
 
 # Parameters
-MAX_SPEED = 0.7 # meters per second
-DIST_THR = 0.10 # used to know when TIAGo is close enough to target
-ANGLE_THR = 0.05 # radians
-STOP_DIST = 0.50 # meters from table to stop and move arm
+MAX_SPEED = 0.7
+GOAL_THR = 0.10 # marging error of distance goal threshold
+ANGLE_THR = 0.05 # marging error of angle when navigating (used to know if TIAGo needs to fix direction)
+LIFT_DIST = 0.70 # used to stop TIAGo and retract arm
 
 class TiagoBaseControl(Node):
     def __init__(self):
         super().__init__('tiago_base_control')
-
-        # subscribe to TIAGo's real position in world
+        # subscriptions
         self.odom_sub = self.create_subscription(Odometry, '/ground_truth_odom', self.curr_position_callback, 10)
-        # subscription to arm movement status
-        self.arm_status_sub = self.create_subscription(Bool, '/arm_movement_status', self.arm_status_callback, 10)
-
-        # Publishers
+        # publishers
         self.cmd_pub = self.create_publisher(Twist, '/mobile_base_controller/cmd_vel_unstamped', 10)
-        self.arm_move_pub = self.create_publisher(Bool, '/move_arm_command', 10)
 
-        # read position 
+        # clients
+        self.lift_arm_client = self.create_client(Trigger, 'lift_arm')
+        self.retract_arm_client = self.create_client(Trigger, 'retract_arm')
+        self.gripper_client = self.create_client(Trigger, 'gripper')
+        self.place_obj_client = self.create_client(Trigger, 'place_obj')
+
+        # TIAGo's initial position and angle
         self.position = (0.0, 0.0)
         self.theta = 0.0
-        self.state = 'rotate' # forward, rotate, final_rotate
-        self.arm_cmd_sent = False
-        self.arm_done = False
-        self.drifting = 1.0 # value
+        # TIAGo's states in SM
+        self.state = 'ROTATE' # ROTATE, FORWARD, LIFT_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, RETRACT_ARM, END
 
         self.tasks = [
             {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
@@ -42,23 +42,23 @@ class TiagoBaseControl(Node):
         ]
         self.current_task_idx = 0
         self.target = self.tasks[self.current_task_idx]['goal']
-
-        # backward motion target
+        # new target position when going backwards
         self.back_target = None
 
+        # transition states variables
+        self.isArmLifted = False
+        self.isObjectPlaced = False
+        self.isObjectPicked = False
+
         self.timer = self.create_timer(0.1, self.state_machine_loop)
+
 
     def curr_position_callback(self, msg):
         self.position = (msg.pose.pose.position.x, msg.pose.pose.position.y)
         r = msg.pose.pose.orientation
         self.theta = math.atan2(2 * (r.w * r.z + r.x * r.y), 1 - 2 * (r.y**2 + r.z**2))
 
-    def arm_status_callback(self, msg):
-        if msg.data:
-            self.arm_done = True
-            self.get_logger().info('Arm movement completed.')
-
-    # Helper functions
+    # Helper functions for navigation
     def dest_heading(self):
         x, y = self.position
         return math.atan2(self.target[1] - y, self.target[0] - x)
@@ -69,25 +69,64 @@ class TiagoBaseControl(Node):
         dy = self.target[1] - y
         return math.sqrt(dx*dx + dy*dy)
 
-    def send_arm_cmd(self, action):
-        arm_msg = Bool()
-        arm_msg.data = True
-        self.arm_move_pub.publish(arm_msg)
-        self.get_logger().info(f"Executing arm action: {action}")
-        self.arm_cmd_sent = True
-        self.arm_done = False
+    # helper request functions for state machines
+    def lift_arm_request(self):
+        # If we already sent the request, just check if it finished
+        if hasattr(self, 'arm_future'):
+            if self.arm_future.done():
+                result = self.arm_future.result()
+                if result.success:
+                    self.get_logger().info("Arm lifted successfully!")
+                    self.isArmLifted = True
+                    self.state = 'ROTATE'  # go to next state
+                else:
+                    self.get_logger().error("Arm lift failed: " + result.message)
+                del self.arm_future  # cleanup
+        else:
+            # First time calling service
+            if not self.lift_arm_client.wait_for_service(timeout_sec=1.0):
+                self.get_logger().warn('Waiting for lift_arm service...')
+                return
 
-    def move_back(self, distance=1.0):
+            self.get_logger().info('Service is available. Sending request...')
+            request = Trigger.Request()
+            self.arm_future = self.lift_arm_client.call_async(request)
+            self.get_logger().info("Waiting for arm to finish moving...")
+
+    def retract_arm_request(self):
+        # If we already sent the request, just check if it finished
+        if hasattr(self, 'arm_future'):
+            if self.arm_future.done():
+                result = self.arm_future.result()
+                if result.success:
+                    self.get_logger().info("Arm retracted successfully!")
+                    self.isArmLifted = False
+                    self.state = 'BACKWARD'  # go to next state
+                else:
+                    self.get_logger().error("Arm retract failed: " + result.message)
+                del self.arm_future  # cleanup
+        else:
+            # First time calling service
+            if not self.retract_arm_client.wait_for_service(timeout_sec=1.0):
+                self.get_logger().warn('Waiting for retract_arm service...')
+                return
+
+            self.get_logger().info('Service is available. Sending request...')
+            request = Trigger.Request()
+            self.arm_future = self.retract_arm_client.call_async(request)
+            self.get_logger().info("Waiting for arm to finish moving...")
+
+    # helper function for states
+    def move_back_action(self, distance=1.0):
         x_target = self.position[0] - distance * math.cos(self.theta)
         y_target = self.position[1] - distance * math.sin(self.theta)
 
         self.back_target = (x_target, y_target)
-        self.state = 'backward'
         self.get_logger().info(f"Moving backward to ({self.back_target[0]:.2f}, {self.back_target[1]:.2f})")
-
 
     def state_machine_loop(self):
         if self.current_task_idx >= len(self.tasks):
+            self.state = 'END'
             self.get_logger().info('Simulation is done!')
             self.timer.cancel()
             return
@@ -101,96 +140,95 @@ class TiagoBaseControl(Node):
         # normalize angle to [-pi, pi]
         theta_err = math.atan2(math.sin(theta_err), math.cos(theta_err))
 
-        if self.state == 'backward' and self.back_target is not None:
-            dx = self.back_target[0] - self.position[0]
-            dy = self.back_target[1] - self.position[1]
-            dist = math.sqrt(dx*dx + dy*dy)
-
-            if dist > DIST_THR:
-                twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
-            else:
-                twist.linear.x = 0.0
-                twist.angular.z = 0.0
-                self.state = 'rotate'  # resume navigation
-                self.back_target = None
-                self.get_logger().info('Finished moving backward')
-
-            self.cmd_pub.publish(twist)
-            return  # skip other states
-
-        # --------- STATE MACHINE ---------
-        # stop moving and start arm movement to avoid colliding with table
-        if dist_diff < STOP_DIST and not self.arm_cmd_sent:
-            twist.linear.x = 0.0
-            twist.angular.z = 0.0
-            self.cmd_pub.publish(twist)
-            self.send_arm_cmd(self.tasks[self.current_task_idx]['action'])
-            return
-
-        # wait until arm is done
-        if self.arm_cmd_sent and not self.arm_done:
-            twist.linear.x = 0.0
-            twist.angular.z = 0.0
-            self.cmd_pub.publish(twist)
-            return
-
-        # arrived at position, change state to rotate TIAGo
-        if dist_diff < DIST_THR:
-            twist.linear.x = 0.0
-            twist.angular.z = 0.0
-            self.state = 'final_rotate'
-
         # rotate TIAGo to face correct direction when moving towards table
-        if self.state == 'rotate':
+        if self.state == 'ROTATE':
             # if theta error is significant, rotate while not moving forward
             if abs(theta_err) > ANGLE_THR:
-                twist.linear.x = 0.0
                 # rotate left or right depending on margin of error
                 if theta_err > 0:
                     twist.angular.z = 0.5 * MAX_SPEED
                 else:
                     twist.angular.z = -0.5 * MAX_SPEED
             else:
-                self.state = 'forward'
-
-        # move TIAGo towards table
-        elif self.state == 'forward':
-            self.drifting = 0.4 if dist_diff < 3.5 else 1.0 # allow smooth forward movement
-            if abs(theta_err) > self.drifting:
-                self.state = 'rotate'
-            else:
-                twist.linear.x = 0.5 * MAX_SPEED
+                self.state = 'FORWARD'
                 twist.angular.z = 0.0
 
-        # rotate TIAGo to face table
-        elif self.state == 'final_rotate':
-            # compute error to target yaw
-            final_err = self.target[2] - self.theta
-            final_err = math.atan2(math.sin(final_err), math.cos(final_err)) # normalize [-pi, pi]
-            
-            if abs(final_err) > ANGLE_THR:
+        # move TIAGo towards table
+        elif self.state == 'FORWARD':
+            # as long as TIAG'o is not deviating, continue moving forward
+            if abs(theta_err) > ANGLE_THR:
+                self.state = 'ROTATE'
+                twist.linear.x = 0.0
+            elif dist_diff <= LIFT_DIST and not self.isArmLifted:
+                self.state = 'LIFT_ARM'
+            elif dist_diff < GOAL_THR:
+                self.state = 'FIX_ANGLE'
+                twist.linear.x = 0.0
+            else:
+                twist.linear.x = 0.5 * MAX_SPEED
+
+        elif self.state == 'LIFT_ARM':
+            # not calling it again
+            if not self.isArmLifted:
+                self.lift_arm_request()
+
+        elif self.state == 'FIX_ANGLE':
+            # reposition TIAGo on z-axis
+            theta_err = self.target[2] - self.theta
+            theta_err = math.atan2(math.sin(theta_err), math.cos(theta_err))
+
+            if abs(theta_err) > ANGLE_THR:
                 # rotate left or right depending on margin of error
                 if final_err > 0:
                     twist.angular.z = 0.3 * MAX_SPEED
                 else:
                     twist.angular.z = -0.3 * MAX_SPEED
+
             else:
+                # stop
                 twist.angular.z = 0.0
-                self.get_logger().info(f"Task {self.current_task_idx} completed: {self.tasks[self.current_task_idx]['action']}")
-                # move to next task
-                self.current_task_idx += 1
-                if self.current_task_idx < len(self.tasks):
-                    self.target = self.tasks[self.current_task_idx]['goal']
-                    # move back to better avoid obstacles when moving to next goal
-                    self.move_back(distance=1.0)
-                    self.arm_cmd_sent = False
-                    self.arm_done = False
+
+                if self.current_task_idx == 0:
+                    self.state = 'BACKWARD'
+                    self.move_back_action(distance=1.0)
+                elif self.current_task_idx == 1 or self.current_task_idx == 3:
+                    self.state = 'PICKUP'
+                elif self.current_task_idx == 2 or self.current_task_idx == 4:
+                    self.state = 'PLACE_OBJ'
+
+        elif self.state == 'PICKUP':
+            pass
+        elif self.state == 'PLACE_OBJ':
+            pass
+        elif self.state == 'RETRACT_ARM':
+            # not calling it again
+            if self.isArmLifted:
+                self.retract_arm_request()
+
+        elif self.state == 'BACKWARD' and self.back_target is not None:
+            self.get_logger().info('Moving backward')
+            dx = self.back_target[0] - self.position[0]
+            dy = self.back_target[1] - self.position[1]
+            dist = math.sqrt(dx*dx + dy*dy)
+
+            if dist > GOAL_THR:
+                twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
+            else:
+                twist.linear.x = 0.0
+                self.back_target = None
+                self.get_logger().info('Finished moving backward')
+
+                if current_task_idx == 1 or current_task_idx == 3:
+                    self.state = 'ROTATE' # resume navigation
                 else:
-                    self.get_logger().info("All tasks done!")
-                    self.timer.cancel()
+                    self.state = 'RETRACT_ARM' # arm is on table, must retract it
+                    
+                self.current_task_idx += 1
+                self.isObjectPicked = False
+                self.isObjectPlaced = False
+
 
         self.cmd_pub.publish(twist)
-
 
 def main(args=None):
     rclpy.init(args=args)

@@ -15,8 +15,8 @@ find_package(moveit_core REQUIRED)
 find_package(moveit_common REQUIRED)
 find_package(gazebo_msgs REQUIRED)
 
-add_executable(arm_control src/arm_control.cpp)
-ament_target_dependencies(arm_control
+add_executable(lift_arm_control src/lift_arm_control.cpp)
+ament_target_dependencies(lift_arm_control
   rclcpp
   std_msgs
   moveit_ros_planning_interface
@@ -27,7 +27,23 @@ ament_target_dependencies(arm_control
 )
 
 install(
-  TARGETS arm_control
+  TARGETS lift_arm_control
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+add_executable(retract_arm_control src/retract_arm_control.cpp)
+ament_target_dependencies(retract_arm_control
+  rclcpp
+  std_msgs
+  moveit_ros_planning_interface
+  moveit_msgs
+  moveit_core
+  moveit_common
+  gazebo_msgs
+)
+
+install(
+  TARGETS retract_arm_control
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 

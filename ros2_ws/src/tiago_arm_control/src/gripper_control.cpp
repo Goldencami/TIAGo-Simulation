@@ -3,6 +3,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include <gazebo_msgs/msg/model_states.hpp>
+#include "std_msgs/msg/bool.hpp"
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <geometry_msgs/msg/pose_stamped.hpp>
@@ -13,11 +14,16 @@
 
 class GripperControl : public rclcpp::Node {
 public:
-    GripperControl() : Node("gripper_control"), tf_buffer_(this->get_clock()) {
-        // Subscribe to Gazebo model states
+    GripperControl() : Node("gripper_control"), tf_buffer_(this->get_clock()), picked_(false), pickup_requested_(false) {
         model_states_sub_ = this->create_subscription<gazebo_msgs::msg::ModelStates>(
             "/model_states", 10,
             std::bind(&GripperControl::modelCallback, this, std::placeholders::_1)
+        );
+        
+        // Subscribe to pickup trigger
+        pickup_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+            "/pickup_command", 10,
+            std::bind(&GripperControl::pickupCommandCallback, this, std::placeholders::_1)
         );
 
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
@@ -43,35 +49,12 @@ private:
         return deg * M_PI / 180.0;
     }
 
-    void pickUpPosition() {
-        if (!arm_torso_ || !gripper_) {
-            RCLCPP_ERROR(this->get_logger(), "MoveIt interfaces not initialized!");
-            return;
+    void pickupCommandCallback(const std_msgs::msg::Bool::SharedPtr msg) {
+        if (msg->data) {
+            RCLCPP_INFO(this->get_logger(), "Pickup command received!");
+            pickup_requested_ = true;
+            picked_ = false; // allow a new pickup
         }
-
-        // joint goal positions
-        std::map<std::string, double> joint_goal;
-        joint_goal["torso_lift_joint"] = 0.340;
-        joint_goal["arm_1_joint"] = deg2rad(4.0);
-        joint_goal["arm_2_joint"] = deg2rad(54.0);
-        joint_goal["arm_3_joint"] = deg2rad(-87.0);
-        joint_goal["arm_4_joint"] = deg2rad(78.0);
-        joint_goal["arm_5_joint"] = deg2rad(54.0);
-        joint_goal["arm_6_joint"] = deg2rad(-80.0);
-        joint_goal["arm_7_joint"] = deg2rad(115.0);
-
-        arm_torso_->setJointValueTarget(joint_goal);
-        arm_torso_->move();
-
-        moveit::planning_interface::MoveGroupInterface::Plan torso_plan;
-        bool torso_success = (arm_torso_->plan(torso_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        if (torso_success) {
-            arm_torso_->execute(torso_plan);
-            RCLCPP_INFO(this->get_logger(), "Arm moved above the object successfully.");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to plan path to target.");
-        }
-
     }
 
     void pickObject(const geometry_msgs::msg::PoseStamped &object_pose) {
@@ -83,11 +66,11 @@ private:
         RCLCPP_INFO(this->get_logger(), "Starting pick operation...");
 
         // open gripper first
-        std::map<std::string, double> gripper_goal;
-        gripper_goal["gripper_left_finger_joint"]  = 0.04; // open
-        gripper_goal["gripper_right_finger_joint"] = 0.04; // open
+        std::map<std::string, double> gripper_goal {
+            {"gripper_left_finger_joint", 0.04}, // open
+            {"gripper_right_finger_joint", 0.04} // open
+        };
         gripper_->setJointValueTarget(gripper_goal);
-        gripper_->move();
 
         // transform object pose to MoveIt planning frame
         geometry_msgs::msg::PoseStamped target_pose;
@@ -127,8 +110,8 @@ private:
     }
 
     void modelCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg) {
-        if (picked_)
-            return;
+        if (!pickup_requested_) return; // wait for command
+        if (picked_) return;
 
         for (size_t i = 0; i < msg->name.size(); i++) {
             if (msg->name[i] == "cocacola") {
@@ -144,18 +127,23 @@ private:
                     object_pose.pose.position.z
                 );
 
-                pickUpPosition();
                 pickObject(object_pose);
+
                 picked_ = true; // avoid planning repeatedly
+                pickup_requested_ = false;  // reset
                 break;
             }
         }
     }
 
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr pickup_sub_;
+
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> arm_torso_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> gripper_;
+
     bool picked_ = false;
+    bool pickup_requested_;
 
     // TF2 for transforming object pose to base_link
     tf2_ros::Buffer tf_buffer_;
