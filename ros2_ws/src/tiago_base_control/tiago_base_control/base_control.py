@@ -23,9 +23,15 @@ class TiagoBaseControl(Node):
 
         # clients
         self.lift_arm_client = self.create_client(Trigger, 'lift_arm')
-        self.retract_arm_client = self.create_client(Trigger, 'retract_arm')
+        # self.retract_arm_client = self.create_client(Trigger, 'retract_arm')
         self.gripper_client = self.create_client(Trigger, 'gripper')
         self.place_obj_client = self.create_client(Trigger, 'place_obj')
+
+        # pending requests
+        self.lift_future = None
+        self.grab_future = None
+        self.place_future = None
+
 
         # TIAGo's initial position and angle
         self.position = (0.0, 0.0)
@@ -43,7 +49,7 @@ class TiagoBaseControl(Node):
         self.current_task_idx = 0
         self.target = self.tasks[self.current_task_idx]['goal']
         # new target position when going backwards
-        self.back_target = None
+        self.backTargetSet = False
 
         # transition states variables
         self.isArmLifted = False
@@ -71,58 +77,85 @@ class TiagoBaseControl(Node):
 
     # helper request functions for state machines
     def lift_arm_request(self):
-        # If we already sent the request, just check if it finished
-        if hasattr(self, 'arm_future'):
-            if self.arm_future.done():
-                result = self.arm_future.result()
+        if self.lift_future:
+            if self.lift_future.done():
+                result = self.lift_future.result()
                 if result.success:
-                    self.get_logger().info("Arm lifted successfully!")
                     self.isArmLifted = True
-                    self.state = 'ROTATE'  # go to next state
-                else:
-                    self.get_logger().error("Arm lift failed: " + result.message)
-                del self.arm_future  # cleanup
-        else:
-            # First time calling service
-            if not self.lift_arm_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().warn('Waiting for lift_arm service...')
-                return
+                self.lift_future = None
+            return
 
-            self.get_logger().info('Service is available. Sending request...')
-            request = Trigger.Request()
-            self.arm_future = self.lift_arm_client.call_async(request)
-            self.get_logger().info("Waiting for arm to finish moving...")
+        if not self.lift_arm_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Waiting for lift_arm service...')
+            return
 
-    def retract_arm_request(self):
-        # If we already sent the request, just check if it finished
-        if hasattr(self, 'arm_future'):
-            if self.arm_future.done():
-                result = self.arm_future.result()
+        req = Trigger.Request()
+        self.lift_future = self.lift_arm_client.call_async(req)
+
+
+    # def retract_arm_request(self):
+    #     # If we already sent the request, just check if it finished
+    #     if hasattr(self, 'arm_future'):
+    #         if self.arm_future.done():
+    #             result = self.arm_future.result()
+    #             if result.success:
+    #                 self.get_logger().info("Arm retracted successfully!")
+    #                 self.isArmLifted = False
+    #             else:
+    #                 self.get_logger().error("Arm retract failed: " + result.message)
+    #             del self.arm_future  # cleanup
+    #     else:
+    #         # First time calling service
+    #         if not self.retract_arm_client.wait_for_service(timeout_sec=1.0):
+    #             self.get_logger().warn('Waiting for retract_arm service...')
+    #             return
+
+    #         self.get_logger().info('Service is available. Sending request...')
+    #         request = Trigger.Request()
+    #         self.arm_future = self.retract_arm_client.call_async(request)
+    #         self.get_logger().info("Waiting for arm to finish moving...")
+
+    def grab_request(self):
+        if self.grab_future:
+            if self.grab_future.done():
+                result = self.grab_future.result()
                 if result.success:
-                    self.get_logger().info("Arm retracted successfully!")
-                    self.isArmLifted = False
-                    self.state = 'BACKWARD'  # go to next state
-                else:
-                    self.get_logger().error("Arm retract failed: " + result.message)
-                del self.arm_future  # cleanup
-        else:
-            # First time calling service
-            if not self.retract_arm_client.wait_for_service(timeout_sec=1.0):
-                self.get_logger().warn('Waiting for retract_arm service...')
-                return
+                    self.isObjectPicked = True
+                self.grab_future = None
+            return
 
-            self.get_logger().info('Service is available. Sending request...')
-            request = Trigger.Request()
-            self.arm_future = self.retract_arm_client.call_async(request)
-            self.get_logger().info("Waiting for arm to finish moving...")
+        if not self.gripper_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Waiting for gripper service...')
+            return
+
+        req = Trigger.Request()
+        self.grab_future = self.gripper_client.call_async(req)
+
+    def place_obj_request(self):
+        if self.place_future:
+            if self.place_future.done():
+                result = self.place_future.result()
+                if result.success:
+                    self.isObjectPlaced = True
+                self.place_future = None
+            return
+
+        if not self.place_obj_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Waiting for place_obj service...')
+            return
+
+        req = Trigger.Request()
+        self.place_future = self.place_obj_client.call_async(req)
 
     # helper function for states
-    def move_back_action(self, distance=1.0):
+    def set_move_back_to(self, distance=1.0):
         x_target = self.position[0] - distance * math.cos(self.theta)
         y_target = self.position[1] - distance * math.sin(self.theta)
 
-        self.back_target = (x_target, y_target)
-        self.get_logger().info(f"Moving backward to ({self.back_target[0]:.2f}, {self.back_target[1]:.2f})")
+        # self.backTargetSet = (x_target, y_target)
+        self.target = (x_target, y_target, self.target[2])
+        self.backTargetSet = True
+        self.get_logger().info(f"Moving backward to ({self.target[0]:.2f}, {self.target[1]:.2f})")
 
     def state_machine_loop(self):
         if self.current_task_idx >= len(self.tasks):
@@ -171,6 +204,9 @@ class TiagoBaseControl(Node):
             # not calling it again
             if not self.isArmLifted:
                 self.lift_arm_request()
+                pass  # DO NOT RETURN
+            else:
+                self.state = 'ROTATE'
 
         elif self.state == 'FIX_ANGLE':
             # reposition TIAGo on z-axis
@@ -179,7 +215,7 @@ class TiagoBaseControl(Node):
 
             if abs(theta_err) > ANGLE_THR:
                 # rotate left or right depending on margin of error
-                if final_err > 0:
+                if theta_err > 0:
                     twist.angular.z = 0.3 * MAX_SPEED
                 else:
                     twist.angular.z = -0.3 * MAX_SPEED
@@ -190,43 +226,65 @@ class TiagoBaseControl(Node):
 
                 if self.current_task_idx == 0:
                     self.state = 'BACKWARD'
-                    self.move_back_action(distance=1.0)
+                    self.set_move_back_to(distance=1.0)
                 elif self.current_task_idx == 1 or self.current_task_idx == 3:
                     self.state = 'PICKUP'
                 elif self.current_task_idx == 2 or self.current_task_idx == 4:
                     self.state = 'PLACE_OBJ'
 
         elif self.state == 'PICKUP':
-            pass
-        elif self.state == 'PLACE_OBJ':
-            pass
-        elif self.state == 'RETRACT_ARM':
-            # not calling it again
-            if self.isArmLifted:
-                self.retract_arm_request()
+            # keep requesting or checking until it's completed
+            if not self.isObjectPicked:
+                self.grab_request()  # sends request or checks future
+                return  # stay in PICKUP until done
 
-        elif self.state == 'BACKWARD' and self.back_target is not None:
+            # once done:
+            self.lift_arm_request()
+            self.state = 'BACKWARD'
+            self.set_move_back_to(distance=1.0)
+        elif self.state == 'PLACE_OBJ':
+            # not calling it again
+            if not self.isObjectPlaced:
+                self.place_obj_request()
+                return
+
+            self.lift_arm_request()
+            self.state = 'BACKWARD'
+            self.set_move_back_to(distance=1.0)
+        # elif self.state == 'RETRACT_ARM':
+        #     # not calling it again
+        #     if self.isArmLifted:
+        #         self.retract_arm_request()
+        #         self.state = 'ROTATE' # go to next state
+
+        elif self.state == 'BACKWARD' and self.backTargetSet:
             self.get_logger().info('Moving backward')
-            dx = self.back_target[0] - self.position[0]
-            dy = self.back_target[1] - self.position[1]
+            dx = self.target[0] - self.position[0]
+            dy = self.target[1] - self.position[1]
             dist = math.sqrt(dx*dx + dy*dy)
 
             if dist > GOAL_THR:
-                twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
+                if self.state == 'PLACE_OBJ':
+                    twist.linear.y = -0.5 * MAX_SPEED  # move backward straight
+                else:
+                    twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
             else:
                 twist.linear.x = 0.0
-                self.back_target = None
+                self.backTargetSet = False
                 self.get_logger().info('Finished moving backward')
+                self.state = 'ROTATE' # resume navigation
+                # if self.current_task_idx == 0:
+                #     self.state = 'RETRACT_ARM' # arm is on table, must retract it
+                # else:
+                #     self.state = 'ROTATE' # resume navigation
 
-                if current_task_idx == 1 or current_task_idx == 3:
-                    self.state = 'ROTATE' # resume navigation
-                else:
-                    self.state = 'RETRACT_ARM' # arm is on table, must retract it
-                    
+                self.get_logger().info(f"Ending task: {self.tasks[self.current_task_idx]['action']}")
                 self.current_task_idx += 1
+                self.get_logger().info(f"current_task_idx: {self.current_task_idx}")
+                self.target = self.tasks[self.current_task_idx]['goal']
                 self.isObjectPicked = False
                 self.isObjectPlaced = False
-
+                self.backTargetSet = False
 
         self.cmd_pub.publish(twist)
 

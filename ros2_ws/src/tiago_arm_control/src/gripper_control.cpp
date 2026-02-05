@@ -1,12 +1,15 @@
 #include <memory>
+#include <map>
 #include <string>
+#include <cmath>
 
 #include "rclcpp/rclcpp.hpp"
-#include <gazebo_msgs/msg/model_states.hpp>
-#include "std_msgs/msg/bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
+#include "gazebo_msgs/msg/model_states.hpp"
 
+// MoveIt 2
 #include <moveit/move_group_interface/move_group_interface.h>
-#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
@@ -14,21 +17,21 @@
 
 class GripperControl : public rclcpp::Node {
 public:
-    GripperControl() : Node("gripper_control"), tf_buffer_(this->get_clock()), picked_(false), pickup_requested_(false) {
+    GripperControl(): Node("gripper_control"), tf_buffer_(this->get_clock()), picked_up_(false), location_fetched_(false) {
         model_states_sub_ = this->create_subscription<gazebo_msgs::msg::ModelStates>(
             "/model_states", 10,
             std::bind(&GripperControl::modelCallback, this, std::placeholders::_1)
         );
-        
-        // Subscribe to pickup trigger
-        pickup_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-            "/pickup_command", 10,
-            std::bind(&GripperControl::pickupCommandCallback, this, std::placeholders::_1)
+
+        service_ = this->create_service<std_srvs::srv::Trigger>(
+            "gripper",
+            std::bind(&GripperControl::handleGripRequest, this, 
+                std::placeholders::_1, std::placeholders::_2)
         );
 
         tf_listener_ = std::make_shared<tf2_ros::TransformListener>(tf_buffer_);
 
-        RCLCPP_INFO(this->get_logger(), "GripperControl node created.");
+        RCLCPP_INFO(this->get_logger(), "GripperControl node initialized as service server.");
     }
 
     void initializeMoveGroup(const rclcpp::Node::SharedPtr &node_shared) {
@@ -45,22 +48,52 @@ public:
     }
 
 private:
-    double deg2rad(double deg) {
-        return deg * M_PI / 180.0;
+    // Service callback
+    void handleGripRequest(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+        (void)request; // no data in Trigger request
+
+        if (!location_fetched_) {
+            response->success = false;
+            response->message = "Object location not yet detected!";
+            return;
+        }
+
+        RCLCPP_INFO(this->get_logger(), "Received gripper request. Moving arm...");
+        bool success = pickObject();
+
+        response->success = success;
+        response->message = success ? "Gripped successfully!" : "Failed to pick object.";
     }
 
-    void pickupCommandCallback(const std_msgs::msg::Bool::SharedPtr msg) {
-        if (msg->data) {
-            RCLCPP_INFO(this->get_logger(), "Pickup command received!");
-            pickup_requested_ = true;
-            picked_ = false; // allow a new pickup
+    void modelCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg) {
+        if (location_fetched_) return;
+
+        for (size_t i = 0; i < msg->name.size(); i++) {
+            if (msg->name[i] == "cocacola") {
+                object_pose_.header.frame_id = "odom";  // Gazebo gives odom frame
+                object_pose_.header.stamp = rclcpp::Time(0); // latest transform
+                object_pose_.pose = msg->pose[i];
+
+                RCLCPP_INFO(this->get_logger(),
+                    "Cocacola pose: (%.2f, %.2f, %.2f)",
+                    object_pose_.pose.position.x,
+                    object_pose_.pose.position.y,
+                    object_pose_.pose.position.z
+                );
+
+
+                location_fetched_ = true; // avoid planning repeatedly
+                return;
+            }
         }
     }
 
-    void pickObject(const geometry_msgs::msg::PoseStamped &object_pose) {
+    bool pickObject() {
         if (!arm_torso_ || !gripper_) {
             RCLCPP_ERROR(this->get_logger(), "MoveIt interfaces not initialized!");
-            return;
+            return false;
         }
 
         RCLCPP_INFO(this->get_logger(), "Starting pick operation...");
@@ -75,10 +108,10 @@ private:
         // transform object pose to MoveIt planning frame
         geometry_msgs::msg::PoseStamped target_pose;
         try {
-            target_pose = tf_buffer_.transform(object_pose, "base_link", tf2::durationFromSec(1.0));
+            target_pose = tf_buffer_.transform(object_pose_, "base_link", tf2::durationFromSec(1.0));
         } catch (tf2::TransformException &ex) {
             RCLCPP_WARN(this->get_logger(), "TF transform failed: %s", ex.what());
-            return;
+            return false;
         }
 
         // put arm above object
@@ -89,62 +122,42 @@ private:
         target_pose.pose.orientation.z = 0.0;
         target_pose.pose.orientation.w = 0.7071;
 
-        arm_torso_->setPoseTarget(target_pose);
+        // arm_torso_->setPoseTarget(target_pose);
         moveit::planning_interface::MoveGroupInterface::Plan arm_plan;
-        bool arm_success = (arm_torso_->plan(arm_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        if (arm_success) {
-            arm_torso_->execute(arm_plan);
-            RCLCPP_INFO(this->get_logger(), "Arm moved above the object successfully.");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to plan path to target.");
+        if (arm_torso_->plan(arm_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to plan arm motion.");
+            return false;
         }
 
-        moveit::planning_interface::MoveGroupInterface::Plan grippers_plan;
-        bool gripper_success = (gripper_->plan(grippers_plan) == moveit::planning_interface::MoveItErrorCode::SUCCESS);
-        if (gripper_success) {
-            gripper_->execute(grippers_plan);
-            RCLCPP_INFO(this->get_logger(), "Gripper moved above the object successfully.");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to plan path to target.");
+        arm_torso_->execute(arm_plan);
+
+        moveit::planning_interface::MoveGroupInterface::Plan grip_plan;
+        if (gripper_->plan(grip_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to plan gripper.");
+            return false;
         }
+
+        gripper_->execute(grip_plan);
+
+
+        picked_up_ = true;
+        return true;
     }
 
-    void modelCallback(const gazebo_msgs::msg::ModelStates::SharedPtr msg) {
-        if (!pickup_requested_) return; // wait for command
-        if (picked_) return;
-
-        for (size_t i = 0; i < msg->name.size(); i++) {
-            if (msg->name[i] == "cocacola") {
-                geometry_msgs::msg::PoseStamped object_pose;
-                object_pose.header.frame_id = "odom";  // Gazebo gives odom frame
-                object_pose.header.stamp = rclcpp::Time(0); // latest transform
-                object_pose.pose = msg->pose[i];
-
-                RCLCPP_INFO(this->get_logger(),
-                    "Cocacola pose: (%.2f, %.2f, %.2f)",
-                    object_pose.pose.position.x,
-                    object_pose.pose.position.y,
-                    object_pose.pose.position.z
-                );
-
-                pickObject(object_pose);
-
-                picked_ = true; // avoid planning repeatedly
-                pickup_requested_ = false;  // reset
-                break;
-            }
-        }
+    double deg2rad(double deg) {
+        return deg * M_PI / 180.0;
     }
 
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
-    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr pickup_sub_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr service_;
 
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> arm_torso_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> gripper_;
 
-    bool picked_ = false;
-    bool pickup_requested_;
+    geometry_msgs::msg::PoseStamped object_pose_;
 
+    bool picked_up_;
+    bool location_fetched_;
     // TF2 for transforming object pose to base_link
     tf2_ros::Buffer tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;

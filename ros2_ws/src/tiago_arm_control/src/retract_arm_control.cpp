@@ -62,8 +62,6 @@ private:
         joint_goal["arm_5_joint"] = deg2rad(-85.0);
         joint_goal["arm_6_joint"] = deg2rad(78.0);
         joint_goal["arm_7_joint"] = deg2rad(-0.0);
-        joint_goal["gripper_left_finger_joint"] = 0.0;
-        joint_goal["gripper_right_finger_joint"] = 0.0;
 
         move_group_->setJointValueTarget(joint_goal);
         move_group_->setMaxVelocityScalingFactor(0.5);
