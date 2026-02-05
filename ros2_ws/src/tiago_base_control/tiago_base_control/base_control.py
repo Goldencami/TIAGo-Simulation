@@ -23,13 +23,14 @@ class TiagoBaseControl(Node):
 
         # clients
         self.lift_arm_client = self.create_client(Trigger, 'lift_arm')
-        # self.retract_arm_client = self.create_client(Trigger, 'retract_arm')
         self.grab_pose_client = self.create_client(Trigger, 'grab_pose')
+        self.pick_obj_client = self.create_client(Trigger, 'pick_obj')
         self.place_obj_client = self.create_client(Trigger, 'place_obj')
 
         # pending requests
         self.lift_future = None
         self.grab_pose_future = None
+        self.pick_obj_future = None
         self.place_future = None
 
 
@@ -37,13 +38,13 @@ class TiagoBaseControl(Node):
         self.position = (0.0, 0.0)
         self.theta = 0.0
         # TIAGo's states in SM
-        self.state = 'ROTATE' # ROTATE, FORWARD, LIFT_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, RETRACT_ARM, END
+        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, RETRACT_ARM, END
 
         self.tasks = [
             {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
-            {'goal': (5.628615, -2.887168, 0), 'action': 'pick_can'},
+            {'goal': (5.654795, -2.571507, 0), 'action': 'pick_can'},
             {'goal': (6.628535, -2.607165, -1.575030), 'action': 'place_can'},
-            {'goal': (5.628615, -3.305861, 0), 'action': 'pick_cup'},
+            {'goal': (5.654795, -2.571507, 0), 'action': 'pick_cup'},
             {'goal': (6.366570, -1.895496, -1.575030), 'action': 'place_cup'}
         ]
         self.current_task_idx = 1 # set to 0 after done testing
@@ -52,7 +53,7 @@ class TiagoBaseControl(Node):
         self.backTargetSet = False
 
         # transition states variables
-        self.isArmLifted = False
+        self.isArmPosed = False
         self.isObjectPlaced = False
         self.isObjectPicked = False
 
@@ -81,7 +82,7 @@ class TiagoBaseControl(Node):
             if self.lift_future.done():
                 result = self.lift_future.result()
                 if result.success:
-                    self.isArmLifted = True
+                    self.isArmPosed = True
                 self.lift_future = None
             return
 
@@ -92,35 +93,13 @@ class TiagoBaseControl(Node):
         req = Trigger.Request()
         self.lift_future = self.lift_arm_client.call_async(req)
 
-
-    # def retract_arm_request(self):
-    #     # If we already sent the request, just check if it finished
-    #     if hasattr(self, 'arm_future'):
-    #         if self.arm_future.done():
-    #             result = self.arm_future.result()
-    #             if result.success:
-    #                 self.get_logger().info("Arm retracted successfully!")
-    #                 self.isArmLifted = False
-    #             else:
-    #                 self.get_logger().error("Arm retract failed: " + result.message)
-    #             del self.arm_future  # cleanup
-    #     else:
-    #         # First time calling service
-    #         if not self.retract_arm_client.wait_for_service(timeout_sec=1.0):
-    #             self.get_logger().warn('Waiting for retract_arm service...')
-    #             return
-
-    #         self.get_logger().info('Service is available. Sending request...')
-    #         request = Trigger.Request()
-    #         self.arm_future = self.retract_arm_client.call_async(request)
-    #         self.get_logger().info("Waiting for arm to finish moving...")
-
     def grab_pose_request(self):
         if self.grab_pose_future:
             if self.grab_pose_future.done():
                 result = self.grab_pose_future.result()
                 if result.success:
-                    self.isObjectPicked = False
+                    self.isArmPosed = True
+                    self.state = 'ROTATE'
                 self.grab_pose_future = None
             return
 
@@ -131,12 +110,31 @@ class TiagoBaseControl(Node):
         req = Trigger.Request()
         self.grab_pose_future = self.grab_pose_client.call_async(req)
 
+    def pick_obj_request(self):
+        if self.pick_obj_future:
+            if self.pick_obj_future.done():
+                result = self.pick_obj_future.result()
+                if result.success:
+                    self.isArmPosed = False
+                    self.isObjectPicked = True
+                    self.state = 'BACKWARD'
+                self.pick_obj_future = None
+            return
+
+        if not self.pick_obj_client.wait_for_service(timeout_sec=1.0):
+            self.get_logger().warn('Waiting for pick_obj service...')
+            return
+
+        req = Trigger.Request()
+        self.pick_obj_future = self.pick_obj_client.call_async(req)
+
     def place_obj_request(self):
         if self.place_future:
             if self.place_future.done():
                 result = self.place_future.result()
                 if result.success:
                     self.isObjectPlaced = True
+                    self.state = 'ROTATE'
                 self.place_future = None
             return
 
@@ -192,18 +190,20 @@ class TiagoBaseControl(Node):
             if abs(theta_err) > ANGLE_THR:
                 self.state = 'ROTATE'
                 twist.linear.x = 0.0
-            elif dist_diff <= LIFT_DIST and not self.isArmLifted:
-                self.state = 'LIFT_ARM'
+            elif dist_diff <= LIFT_DIST and not self.isArmPosed:
+                self.state = 'POSE_ARM'
             elif dist_diff < GOAL_THR:
                 self.state = 'FIX_ANGLE'
                 twist.linear.x = 0.0
             else:
                 twist.linear.x = 0.5 * MAX_SPEED
 
-        elif self.state == 'LIFT_ARM':
+        elif self.state == 'POSE_ARM':
             # not calling it again
-            if not self.isArmLifted:
+            if self.current_task_idx == 0 and not self.isArmPosed:
                 self.lift_arm_request()
+            elif (self.current_task_idx == 1 or self.current_task_idx == 3) and not self.isArmPosed:
+                self.grab_pose_request()
                 pass  # DO NOT RETURN
             else:
                 self.state = 'ROTATE'
@@ -213,7 +213,7 @@ class TiagoBaseControl(Node):
             theta_err = self.target[2] - self.theta
             theta_err = math.atan2(math.sin(theta_err), math.cos(theta_err))
 
-            if abs(theta_err) > ANGLE_THR:
+            if abs(theta_err) > 0.001:
                 # rotate left or right depending on margin of error
                 if theta_err > 0:
                     twist.angular.z = 0.3 * MAX_SPEED
@@ -233,29 +233,22 @@ class TiagoBaseControl(Node):
                     self.state = 'PLACE_OBJ'
 
         elif self.state == 'PICKUP':
-            # keep requesting or checking until it's completed
+            # stay in PICKUP until done
             if not self.isObjectPicked:
-                self.grab_pose_request()  # sends request or checks future
-                return  # stay in PICKUP until done
-
-            # once done:
-            self.lift_arm_request()
-            self.state = 'BACKWARD'
-            self.set_move_back_to(distance=1.0)
+                pass
+                # self.pick_obj_request()  # sends request or checks future
+            else:
+                # once done:
+                self.state = 'BACKWARD'
+                self.set_move_back_to(distance=1.0)
         elif self.state == 'PLACE_OBJ':
             # not calling it again
             if not self.isObjectPlaced:
                 self.place_obj_request()
                 return
 
-            self.lift_arm_request()
             self.state = 'BACKWARD'
             self.set_move_back_to(distance=1.0)
-        # elif self.state == 'RETRACT_ARM':
-        #     # not calling it again
-        #     if self.isArmLifted:
-        #         self.retract_arm_request()
-        #         self.state = 'ROTATE' # go to next state
 
         elif self.state == 'BACKWARD' and self.backTargetSet:
             self.get_logger().info('Moving backward')
@@ -272,19 +265,17 @@ class TiagoBaseControl(Node):
                 twist.linear.x = 0.0
                 self.backTargetSet = False
                 self.get_logger().info('Finished moving backward')
-                self.state = 'ROTATE' # resume navigation
-                # if self.current_task_idx == 0:
-                #     self.state = 'RETRACT_ARM' # arm is on table, must retract it
-                # else:
-                #     self.state = 'ROTATE' # resume navigation
 
                 self.get_logger().info(f"Ending task: {self.tasks[self.current_task_idx]['action']}")
                 self.current_task_idx += 1
                 self.get_logger().info(f"current_task_idx: {self.current_task_idx}")
                 self.target = self.tasks[self.current_task_idx]['goal']
+                
+                self.isArmPosed = False # TO REVIEW
                 self.isObjectPicked = False
                 self.isObjectPlaced = False
                 self.backTargetSet = False
+                self.state = 'ROTATE' # resume navigation
 
         self.cmd_pub.publish(twist)
 

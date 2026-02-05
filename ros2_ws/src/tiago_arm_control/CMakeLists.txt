@@ -63,4 +63,20 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+add_executable(gripper_control src/gripper_control.cpp)
+ament_target_dependencies(gripper_control
+  rclcpp
+  std_msgs
+  moveit_ros_planning_interface
+  moveit_msgs
+  moveit_core
+  moveit_common
+  gazebo_msgs
+)
+
+install(
+  TARGETS gripper_control
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()
