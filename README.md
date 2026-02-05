@@ -53,7 +53,7 @@ The following diagram shows how obstacle avoiding and navigation towards the goa
 ![Image](https://github.com/user-attachments/assets/1c4adccd-84c4-4ec4-bf8e-8dc32425948b)
 
 ## State Machine
-![Image](https://github.com/user-attachments/assets/7b739ce9-02d6-4f49-8fe6-43665d27be8f)
+![Image](https://github.com/user-attachments/assets/3cae37e9-4d09-4097-a8e2-39dcb7799e8c)
 
 ## Resources
 - [TIAGo ROS 2 Simulation](https://github.com/pal-robotics/tiago_simulation/tree/humble-devel)
