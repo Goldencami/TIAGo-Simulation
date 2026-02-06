@@ -40,13 +40,13 @@ class TiagoBaseControl(Node):
         self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, ROTATE_90, END
 
         self.tasks = [
-            {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
+            {'goal': (-0.366636, -0.846681, -0.001331), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
             {'goal': (5.654795, -2.571507, 0), 'action': 'pick_can'},
-            {'goal': (6.628535, -2.607165, -1.575030), 'action': 'place_can'},
+            {'goal': (0.260512, -0.846681, -0.001331), 'action': 'place_can'},
             {'goal': (5.654795, -2.571507, 0), 'action': 'pick_cup'},
-            {'goal': (6.366570, -1.895496, -1.575030), 'action': 'place_cup'}
+            {'goal': (0.398127, -0.846681, -0.001331), 'action': 'place_cup'}
         ]
-        self.current_task_idx = 1 # set to 0 after done testing
+        self.current_task_idx = 0 # set to 0 after done testing
         self.target = self.tasks[self.current_task_idx]['goal']
         # new target position when going backwards
         self.backTargetSet = False
@@ -188,9 +188,9 @@ class TiagoBaseControl(Node):
                 else:
                     twist.angular.z = -0.5 * MAX_SPEED
             else:
-                self.state = 'FORWARD'
                 twist.angular.z = 0.0
-
+                self.state = 'FORWARD'
+                
         # move TIAGo towards table
         elif self.state == 'FORWARD':
             # as long as TIAG'o is not deviating, continue moving forward
