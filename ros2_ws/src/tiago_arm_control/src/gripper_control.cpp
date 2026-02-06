@@ -50,28 +50,39 @@ private:
     }
 
     bool pickObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
-        auto request = std::make_shared<AttachLink::Request>();
+    if (!attach_client_->wait_for_service(2s)) {
+        RCLCPP_ERROR(get_logger(), "Attach service unavailable.");
+        return false;
+    }
+
+    auto request = std::make_shared<AttachLink::Request>();
         request->model1_name = model1;
         request->link1_name = link1;
         request->model2_name = model2;
         request->link2_name = link2;
 
-        auto future = attach_client_->async_send_request(request);
+        // ---- NON-BLOCKING ASYNC CALL ----
+        auto future = attach_client_->async_send_request(
+            request,
+            [this](rclcpp::Client<AttachLink>::SharedFuture future_response)
+            {
+                auto resp = future_response.get();
 
-        // Wait for future without using another executor
-        while (rclcpp::ok()) {
-            auto status = future.wait_for(100ms);
-            if (status == std::future_status::ready) {
-                RCLCPP_INFO(this->get_logger(), "Attach request sent successfully!");
-                picked_ = true;
-                return true;
+                if (resp->success) {
+                    RCLCPP_INFO(this->get_logger(), "Attach succeeded: %s",
+                                resp->message.c_str());
+                    picked_ = true;
+                } else {
+                    RCLCPP_ERROR(this->get_logger(), "Attach failed: %s",
+                                resp->message.c_str());
+                    picked_ = false;
+                }
             }
-            rclcpp::spin_some(this->get_node_base_interface()); // process callbacks
-        }
+        );
 
-        RCLCPP_ERROR(this->get_logger(), "Failed to call attach service");
-        picked_ = false;
-        return false;
+        // Return immediately—DO NOT BLOCK
+        RCLCPP_INFO(this->get_logger(), "Attach request sent.");
+        return true;
     }
 
 

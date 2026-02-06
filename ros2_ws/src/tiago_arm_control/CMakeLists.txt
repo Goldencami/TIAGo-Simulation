@@ -81,4 +81,21 @@ install(
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
 
+add_executable(TIAGOController src/TIAGOController.cpp)
+ament_target_dependencies(TIAGOController
+  rclcpp
+  std_msgs
+  moveit_ros_planning_interface
+  moveit_msgs
+  moveit_core
+  moveit_common
+  gazebo_msgs
+  linkattacher_msgs
+)
+
+install(
+  TARGETS TIAGOController
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()

@@ -92,55 +92,15 @@ private:
 
         RCLCPP_INFO(this->get_logger(), "Starting posing operation...");
 
-        moveArmUp();
+        setArm4PickUp();
         moveArm2PickUp();
-        // std::map<std::string, double> joint_goal;
-        // joint_goal["torso_lift_joint"] = 0.350;
-        // joint_goal["arm_1_joint"] = deg2rad(4.0);
-        // joint_goal["arm_2_joint"] = deg2rad(15.0);
-        // joint_goal["arm_3_joint"] = deg2rad(-59.0);
-        // joint_goal["arm_4_joint"] = deg2rad(113.0);
-        // joint_goal["arm_5_joint"] = deg2rad(40.0);
-        // joint_goal["arm_6_joint"] = deg2rad(40.0);
-        // joint_goal["arm_7_joint"] = deg2rad(-30.0);
-
-        // arm_torso_->setJointValueTarget(joint_goal);
-
-        // // open gripper first
-        // std::map<std::string, double> gripper_goal {
-        //     {"gripper_left_finger_joint", 0.044}, // open
-        //     {"gripper_right_finger_joint", 0.044} // open
-        // };
-        // gripper_->setJointValueTarget(gripper_goal);
-
-        // moveit::planning_interface::MoveGroupInterface::Plan arm_plan;
-        // if (arm_torso_->plan(arm_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-        //     RCLCPP_ERROR(this->get_logger(), "Failed to plan grab pose arm motion.");
-        //     return false;
-        // }
-
-        // if (arm_torso_->execute(arm_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-        //     RCLCPP_ERROR(this->get_logger(), "Grab pose execution failed.");
-        //     return false;
-        // }
-
-        // moveit::planning_interface::MoveGroupInterface::Plan grip_plan;
-        // if (gripper_->plan(grip_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-        //     RCLCPP_ERROR(this->get_logger(), "Failed to plan gripper motion.");
-        //     return false;
-        // }
-
-        // if (gripper_->execute(grip_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-        //     RCLCPP_ERROR(this->get_logger(), "Gripper execution failed.");
-        //     return false;
-        // }
 
         posed_ = true;
         RCLCPP_INFO(this->get_logger(), "Grab pose operation completed successfully.");
         return true;
     }
 
-    bool moveArmUp() {
+    bool setArm4PickUp() {
         std::map<std::string, double> joint_goal;
         joint_goal["torso_lift_joint"] = 0.350;
         joint_goal["arm_1_joint"] = deg2rad(4.0);
