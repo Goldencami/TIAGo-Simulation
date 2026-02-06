@@ -31,11 +31,6 @@ public:
         );
 
         // services
-        lift_arm_srv_ = this->create_service<std_srvs::srv::Trigger>(
-            "/lift_arm", std::bind(&TIAGOController::handleLiftArmRequest, 
-            this, std::placeholders::_1, std::placeholders::_2)
-        );
-
         grab_pose_srv_ = this->create_service<std_srvs::srv::Trigger>(
             "/grab_pose", std::bind(&TIAGOController::handleGrabPoseRequest,
             this, std::placeholders::_1, std::placeholders::_2)
@@ -96,22 +91,6 @@ private:
     }
 
     // services callbacks
-    void handleLiftArmRequest(
-        const std::shared_ptr<std_srvs::srv::Trigger::Request>,
-        std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
-
-        if (arm_lifted_) {
-            response->success = true;
-            response->message = "Arm already lifted.";
-            return;
-        }
-
-        bool success = liftArm();
-
-        response->success = success;
-        response->message = success ? "Arm lifted." : "Arm lift failed.";
-    }
-
     void handleGrabPoseRequest(
         const std::shared_ptr<std_srvs::srv::Trigger::Request>,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
@@ -191,24 +170,6 @@ private:
     }
 
     // TIAGO's movements
-    bool liftArm() {
-        std::map<std::string, double> joint_goal = {
-            {"torso_lift_joint", 0.350},
-            {"arm_1_joint", deg2rad(4.0)},
-            {"arm_2_joint", deg2rad(58.0)},
-            {"arm_3_joint", deg2rad(-81.0)},
-            {"arm_4_joint", deg2rad(94.0)},
-            {"arm_5_joint", deg2rad(57.0)},
-            {"arm_6_joint", deg2rad(-80.0)},
-            {"arm_7_joint", deg2rad(0.0)}
-        };
-
-        if (!moveGroupTo(arm_torso_, joint_goal)) return false;
-
-        arm_lifted_ = true;
-        return true;
-    }
-    
     void pickObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
         if (!lowerForPick()) {
             attach_in_progress_ = false;

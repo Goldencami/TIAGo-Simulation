@@ -23,7 +23,6 @@ class TiagoBaseControl(Node):
         self.cmd_pub = self.create_publisher(Twist, '/mobile_base_controller/cmd_vel_unstamped', 10)
 
         # clients
-        self.lift_arm_client = self.create_client(Trigger, '/lift_arm')
         self.grab_pose_client = self.create_client(Trigger, '/grab_pose')
         self.pick_obj_client = self.create_client(PickObject, '/pick_obj')
         self.place_obj_client = self.create_client(Trigger, '/place_obj')
@@ -47,7 +46,7 @@ class TiagoBaseControl(Node):
             {'goal': (5.654795, -3.044193, 0), 'action': 'pick_cup'},
             {'goal': (0.022772, -0.841814, 1.570796), 'action': 'place_cup'}
         ]
-        self.current_task_idx = 3 # set to 0 after done testing
+        self.current_task_idx = 0
         self.target = self.tasks[self.current_task_idx]['goal']
         # new target position when going backwards
         self.backTargetSet = False
@@ -57,7 +56,7 @@ class TiagoBaseControl(Node):
         self.current_obj_idx = 0
 
         # transition states variables
-        self.isArmPosed = False # set back to False after done testing
+        self.isArmInGrabPose = False
         self.isObjectPlaced = False
         self.isObjectPicked = False
         self.timer = self.create_timer(0.1, self.state_machine_loop)
@@ -80,28 +79,12 @@ class TiagoBaseControl(Node):
         return math.sqrt(dx*dx + dy*dy)
 
     # helper request functions for requests
-    def lift_arm_request(self):
-        if self.lift_future:
-            if self.lift_future.done():
-                result = self.lift_future.result()
-                if result.success:
-                    self.isArmPosed = True
-                self.lift_future = None
-            return
-
-        if not self.lift_arm_client.wait_for_service(timeout_sec=1.0):
-            self.get_logger().warn('Waiting for lift_arm service...')
-            return
-
-        req = Trigger.Request()
-        self.lift_future = self.lift_arm_client.call_async(req)
-
     def grab_pose_request(self):
         if self.grab_pose_future:
             if self.grab_pose_future.done():
                 result = self.grab_pose_future.result()
                 if result.success:
-                    self.isArmPosed = True
+                    self.isArmInGrabPose = True
                     self.state = 'ROTATE'
                 self.grab_pose_future = None
             return
@@ -161,7 +144,6 @@ class TiagoBaseControl(Node):
         x_target = self.position[0] - distance * math.cos(self.theta)
         y_target = self.position[1] - distance * math.sin(self.theta)
 
-        # self.backTargetSet = (x_target, y_target)
         self.target = (x_target, y_target, self.target[2])
         self.backTargetSet = True
         self.get_logger().info(f"Moving backward to ({self.target[0]:.2f}, {self.target[1]:.2f})")
@@ -201,7 +183,7 @@ class TiagoBaseControl(Node):
             if abs(theta_err) > ANGLE_THR:
                 self.state = 'ROTATE'
                 twist.linear.x = 0.0
-            elif dist_diff <= LIFT_DIST and not self.isArmPosed:
+            elif dist_diff <= LIFT_DIST and not self.isArmInGrabPose:
                 self.state = 'POSE_ARM'
                 twist.linear.x = 0.0
             elif dist_diff < GOAL_THR:
@@ -211,12 +193,8 @@ class TiagoBaseControl(Node):
                 twist.linear.x = 0.5 * MAX_SPEED
 
         elif self.state == 'POSE_ARM':
-            # not calling it again
-            if self.current_task_idx == 0 and not self.isArmPosed:
-                self.lift_arm_request()
-            elif (self.current_task_idx == 1 or self.current_task_idx == 3) and not self.isArmPosed:
+            if self.current_task_idx == 0 and not self.isArmInGrabPose:
                 self.grab_pose_request()
-                pass  # DO NOT RETURN
             else:
                 self.state = 'ROTATE'
 
@@ -274,7 +252,6 @@ class TiagoBaseControl(Node):
                 if self.current_task_idx < 5:
                     self.target = self.tasks[self.current_task_idx]['goal']
 
-                # self.isArmPosed = False # TO REVIEW
                 self.isObjectPicked = False
                 self.isObjectPlaced = False
                 self.backTargetSet = False
