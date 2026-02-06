@@ -5,14 +5,21 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "std_srvs/srv/trigger.hpp"
+#include "linkattacher_msgs/srv/attach_link.hpp"
 
-// MoveIt 2
-#include <moveit/move_group_interface/move_group_interface.h>
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
+using AttachLink = linkattacher_msgs::srv::AttachLink;
+using namespace std::chrono_literals;
 
 class GripperControl : public rclcpp::Node {
 public:
-    GripperControl(): Node("gripper_control"), picked_(false) {
+  GripperControl() : Node("gripper_control"), picked_(false) {
+        attach_client_ = this->create_client<AttachLink>("/ATTACHLINK");
+
+        // Wait until service is available
+        RCLCPP_INFO(this->get_logger(), "Waiting for attach service...");
+        attach_client_->wait_for_service();
+        RCLCPP_INFO(this->get_logger(), "Attach service available.");
+
         service_ = this->create_service<std_srvs::srv::Trigger>(
             "pick_obj",
             std::bind(&GripperControl::handlerPickObjRequest, this, 
@@ -20,20 +27,7 @@ public:
         );
 
         RCLCPP_INFO(this->get_logger(), "GripperControl node initialized as service server.");
-    }
-
-    void initializeMoveGroup(const rclcpp::Node::SharedPtr &node_shared) {
-        arm_torso_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_shared, "arm_torso");
-        gripper_ = std::make_shared<moveit::planning_interface::MoveGroupInterface>(node_shared, "gripper");
-
-        gripper_->setMaxVelocityScalingFactor(1.0);
-        gripper_->setMaxAccelerationScalingFactor(1.0);
-
-        arm_torso_->setMaxVelocityScalingFactor(0.5); // 50% of max speed
-        arm_torso_->setMaxAccelerationScalingFactor(0.5); // 50% of max acceleration
-
-        RCLCPP_INFO(this->get_logger(), "MoveGroupInterface initialized.");
-    }
+  }
 
 private:
     // Service callback
@@ -44,7 +38,7 @@ private:
 
         if (!picked_) {
             RCLCPP_INFO(this->get_logger(), "Received pick_obj request. Moving arm...");
-            bool success = pickObject();
+            bool success = pickObject("tiago", "gripper_left_finger_link", "cocacola", "link");
 
             response->success = success;
             response->message = success ? "Picked object successfully!" : "Picked object failed.";
@@ -55,71 +49,46 @@ private:
         }
     }
 
-    bool pickObject() {
-        if (!arm_torso_ || !gripper_) {
-            RCLCPP_ERROR(this->get_logger(), "MoveIt interfaces not initialized!");
-            return false;
+    bool pickObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
+        auto request = std::make_shared<AttachLink::Request>();
+        request->model1_name = model1;
+        request->link1_name = link1;
+        request->model2_name = model2;
+        request->link2_name = link2;
+
+        auto future = attach_client_->async_send_request(request);
+
+        // Wait for future without using another executor
+        while (rclcpp::ok()) {
+            auto status = future.wait_for(100ms);
+            if (status == std::future_status::ready) {
+                RCLCPP_INFO(this->get_logger(), "Attach request sent successfully!");
+                picked_ = true;
+                return true;
+            }
+            rclcpp::spin_some(this->get_node_base_interface()); // process callbacks
         }
 
-        RCLCPP_INFO(this->get_logger(), "Starting pick operation...");
-
-        std::map<std::string, double> joint_goal;
-        joint_goal["torso_lift_joint"] = 0.192;
-
-        arm_torso_->setJointValueTarget(joint_goal);
-
-        // open gripper first
-        std::map<std::string, double> gripper_goal {
-            {"gripper_left_finger_joint", 0.039}, // closing
-            {"gripper_right_finger_joint", 0.039} // closing
-        };
-        gripper_->setJointValueTarget(gripper_goal);
-
-        // arm_torso_->setPoseTarget(target_pose);
-        moveit::planning_interface::MoveGroupInterface::Plan arm_plan;
-        if (arm_torso_->plan(arm_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to plan arm motion.");
-            return false;
-        }
-
-        arm_torso_->execute(arm_plan);
-
-        moveit::planning_interface::MoveGroupInterface::Plan grip_plan;
-        if (gripper_->plan(grip_plan) != moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to plan grab pose.");
-            return false;
-        }
-
-        gripper_->execute(grip_plan);
-
-
-        picked_ = true;
-        return true;
+        RCLCPP_ERROR(this->get_logger(), "Failed to call attach service");
+        picked_ = false;
+        return false;
     }
 
-    double deg2rad(double deg) {
-        return deg * M_PI / 180.0;
-    }
 
+private:
+    rclcpp::Client<AttachLink>::SharedPtr attach_client_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr service_;
-
-    std::shared_ptr<moveit::planning_interface::MoveGroupInterface> arm_torso_;
-    std::shared_ptr<moveit::planning_interface::MoveGroupInterface> gripper_;
 
     bool picked_;
 };
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
-
     auto node = std::make_shared<GripperControl>();
-    node->initializeMoveGroup(node);
 
-    // Use multi-threaded executor
-    rclcpp::executors::MultiThreadedExecutor exec;
-    exec.add_node(node);
+    // Spin to handle service requests
+    rclcpp::spin(node);
 
-    exec.spin();
     rclcpp::shutdown();
     return 0;
 }

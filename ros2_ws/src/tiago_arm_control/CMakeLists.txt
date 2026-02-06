@@ -14,6 +14,7 @@ find_package(moveit_msgs REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_common REQUIRED)
 find_package(gazebo_msgs REQUIRED)
+find_package(linkattacher_msgs REQUIRED)
 
 add_executable(lift_arm_control src/lift_arm_control.cpp)
 ament_target_dependencies(lift_arm_control
@@ -72,6 +73,7 @@ ament_target_dependencies(gripper_control
   moveit_core
   moveit_common
   gazebo_msgs
+  linkattacher_msgs
 )
 
 install(

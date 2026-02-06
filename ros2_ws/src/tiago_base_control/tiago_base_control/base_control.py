@@ -56,6 +56,7 @@ class TiagoBaseControl(Node):
         self.isArmPosed = False
         self.isObjectPlaced = False
         self.isObjectPicked = False
+        self.isPickCmdSent = False
 
         self.timer = self.create_timer(0.1, self.state_machine_loop)
 
@@ -117,7 +118,7 @@ class TiagoBaseControl(Node):
                 if result.success:
                     self.isArmPosed = False
                     self.isObjectPicked = True
-                    self.state = 'BACKWARD'
+                    self.isPickCmdSent = False
                 self.pick_obj_future = None
             return
 
@@ -134,7 +135,7 @@ class TiagoBaseControl(Node):
                 result = self.place_future.result()
                 if result.success:
                     self.isObjectPlaced = True
-                    self.state = 'ROTATE'
+                    self.state = 'BACKWARD'
                 self.place_future = None
             return
 
@@ -234,10 +235,10 @@ class TiagoBaseControl(Node):
 
         elif self.state == 'PICKUP':
             # stay in PICKUP until done
-            if not self.isObjectPicked:
-                pass
-                # self.pick_obj_request()  # sends request or checks future
-            else:
+            if not self.isObjectPicked and not self.isPickCmdSent:
+                self.pick_obj_request()  # sends request or checks future
+                self.isPickCmdSent = True
+            elif self.isObjectPicked:
                 # once done:
                 self.state = 'BACKWARD'
                 self.set_move_back_to(distance=1.0)
