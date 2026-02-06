@@ -37,7 +37,7 @@ class TiagoBaseControl(Node):
         self.position = (0.0, 0.0, 0.0)
         self.theta = 0.0
         # TIAGo's states in SM
-        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, ROTATE_90, END
+        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, END
 
         self.tasks = [
             {'goal': (-0.366636, -0.841814, 1.570796), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
@@ -128,7 +128,6 @@ class TiagoBaseControl(Node):
                 if result.success:
                     self.isObjectPlaced = True
                     self.isObjectPicked = False
-                    self.current_obj_idx += 1
                 self.place_future = None
             return
 
@@ -224,6 +223,11 @@ class TiagoBaseControl(Node):
 
         elif self.state == 'PICKUP':
             # stay in PICKUP until done
+            if self.current_obj_idx >= len(self.objects_list):
+                self.get_logger().error("Object index out of range!")
+                self.state = 'END'
+                return
+                
             if not self.isObjectPicked:
                 self.pick_obj_request(self.objects_list[self.current_obj_idx])  # sends request or checks future
             elif self.isObjectPicked:
@@ -236,6 +240,9 @@ class TiagoBaseControl(Node):
             elif self.isObjectPlaced:
                 self.state = 'BACKWARD'
                 self.set_move_back_to(distance=1.0)
+                self.current_obj_idx += 1
+                self.isObjectPicked = False
+                self.isObjectPlaced = False
 
         elif self.state == 'BACKWARD' and self.backTargetSet:
             dx = self.target[0] - self.position[0]
@@ -252,8 +259,8 @@ class TiagoBaseControl(Node):
                 if self.current_task_idx < 5:
                     self.target = self.tasks[self.current_task_idx]['goal']
 
-                self.isObjectPicked = False
-                self.isObjectPlaced = False
+                # self.isObjectPicked = False
+                # self.isObjectPlaced = False
                 self.backTargetSet = False
                 self.state = 'ROTATE' # resume navigation
 

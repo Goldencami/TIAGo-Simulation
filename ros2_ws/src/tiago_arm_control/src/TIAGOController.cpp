@@ -136,7 +136,7 @@ private:
 
         // let client know that it still needs to wait for a response
         response->success = false;
-        response->message = "Asynchronous started.";
+        response->message = "Picking object...";
     }
 
     void handlePlaceObjRequest(
@@ -146,6 +146,7 @@ private:
         if (placed_) {
             response->success = true;
             response->message = "Object already placed.";
+            placed_ = false;
             return;      
         }
 
@@ -162,11 +163,11 @@ private:
         }
 
         detach_in_progress_ = true;
-        placeObject("tiago", "gripper_left_finger_link", "cocacola", "link");
+        placeObject("tiago", "gripper_left_finger_link", currently_attached_object, "link");
 
         // let client know that it still needs to wait for a response
         response->success = false;
-        response->message = "Asynchronous started.";
+        response->message = "Detaching object...";
     }
 
     // TIAGO's movements
@@ -197,6 +198,8 @@ private:
                 if (resp->success) {
                     RCLCPP_INFO(this->get_logger(), "Attach succeeded: %s", resp->message.c_str());
                     picked_ = true;
+                    currently_attached_object = object_to_pick;
+
                     if(!setPrePickPose()) return;
                 } else {
                     RCLCPP_ERROR(this->get_logger(), "Attach failed: %s", resp->message.c_str());
@@ -234,7 +237,9 @@ private:
                     RCLCPP_INFO(this->get_logger(), "Detach succeeded: %s", resp->message.c_str());
                     picked_ = false;
                     placed_ = true;
+                    grab_pose_done_ = false;
 
+                    currently_attached_object.clear();
                     // logic to lift arm again
                     if(!setPrePickPose()) return;
                 } else {
@@ -334,6 +339,7 @@ private:
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> gripper_;
 
     geometry_msgs::msg::PoseStamped object_pose_;
+    std::string currently_attached_object;
 
     // movements bools
     std::string object_to_pick;
