@@ -44,10 +44,10 @@ class TiagoBaseControl(Node):
             {'goal': (-0.366636, -0.841814, 1.570796), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
             {'goal': (5.654795, -2.571507, 0), 'action': 'pick_can'},
             {'goal': (-0.695897, -0.841814, 1.570796), 'action': 'place_can'},
-            {'goal': (5.654795, -2.571507, 0), 'action': 'pick_cup'},
+            {'goal': (5.654795, -3.044193, 0), 'action': 'pick_cup'},
             {'goal': (0.022772, -0.841814, 1.570796), 'action': 'place_cup'}
         ]
-        self.current_task_idx = 1 # set to 0 after done testing
+        self.current_task_idx = 3 # set to 0 after done testing
         self.target = self.tasks[self.current_task_idx]['goal']
         # new target position when going backwards
         self.backTargetSet = False
@@ -57,7 +57,7 @@ class TiagoBaseControl(Node):
         self.current_obj_idx = 0
 
         # transition states variables
-        self.isArmPosed = True # set back to False after done testing
+        self.isArmPosed = False # set back to False after done testing
         self.isObjectPlaced = False
         self.isObjectPicked = False
         self.timer = self.create_timer(0.1, self.state_machine_loop)
@@ -203,6 +203,7 @@ class TiagoBaseControl(Node):
                 twist.linear.x = 0.0
             elif dist_diff <= LIFT_DIST and not self.isArmPosed:
                 self.state = 'POSE_ARM'
+                twist.linear.x = 0.0
             elif dist_diff < GOAL_THR:
                 self.state = 'FIX_ANGLE'
                 twist.linear.x = 0.0

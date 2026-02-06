@@ -116,11 +116,11 @@ private:
         const std::shared_ptr<std_srvs::srv::Trigger::Request>,
         std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
 
-        if (!object_detected_) {
-            response->success = false;
-            response->message = "Object not detected yet.";
-            return;
-        }
+        // if (!object_detected_) {
+        //     response->success = false;
+        //     response->message = "Object not detected yet.";
+        //     return;
+        // }
 
         if (grab_pose_done_) {
             response->success = true;
@@ -138,6 +138,7 @@ private:
         std::shared_ptr<tiago_arm_control::srv::PickObject::Response> response) {
         
         object_to_pick = request->object_name; // get the desired object's name
+        object_detected_ = false; // reset so the callback can detect the object again
 
         if (picked_) {
             response->success = true;
@@ -235,6 +236,7 @@ private:
                 if (resp->success) {
                     RCLCPP_INFO(this->get_logger(), "Attach succeeded: %s", resp->message.c_str());
                     picked_ = true;
+                    if(!setPrePickPose()) return;
                 } else {
                     RCLCPP_ERROR(this->get_logger(), "Attach failed: %s", resp->message.c_str());
                     picked_ = false;
@@ -247,6 +249,8 @@ private:
     }
 
     void placeObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
+        if(!lowerForPick()) return;
+
         if (!detach_client_->wait_for_service(1s)) {
             RCLCPP_WARN(get_logger(), "Detach service not available yet.");
             detach_in_progress_ = false;
@@ -269,6 +273,9 @@ private:
                     RCLCPP_INFO(this->get_logger(), "Detach succeeded: %s", resp->message.c_str());
                     picked_ = false;
                     placed_ = true;
+
+                    // logic to lift arm again
+                    if(!setPrePickPose()) return;
                 } else {
                     RCLCPP_ERROR(this->get_logger(), "Detach failed: %s", resp->message.c_str());
                     placed_ = false;
@@ -276,8 +283,6 @@ private:
             }
         );
 
-        // logic to lift arm again
-        if(!setPrePickPose()) return;
         // Return immediately—DO NOT BLOCK
         RCLCPP_INFO(this->get_logger(), "Detach request sent.");
     }
@@ -308,7 +313,7 @@ private:
         return true;
     }
 
-    bool lowerForPick() { // TO FIX
+    bool lowerForPick() {
         std::map<std::string, double> joint_goal = {
             {"torso_lift_joint", 0.197},
             {"arm_1_joint", deg2rad(4.0)},
@@ -326,6 +331,8 @@ private:
     bool moveGroupTo(
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> group,
         const std::map<std::string,double>& joints) {
+
+        std::lock_guard<std::mutex> lock(moveit_mutex_);
 
         group->setJointValueTarget(joints);
 
@@ -350,6 +357,8 @@ private:
         return deg * M_PI / 180.0;
     }
 
+    std::mutex moveit_mutex_;
+
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
     rclcpp::Client<AttachLink>::SharedPtr attach_client_;
     rclcpp::Client<DetachLink>::SharedPtr detach_client_;
@@ -367,7 +376,6 @@ private:
 
     // movements bools
     std::string object_to_pick;
-    gazebo_msgs::msg::ModelStates object_pose;
     bool object_detected_;
     bool arm_lifted_;
     bool grab_pose_done_;
@@ -382,6 +390,7 @@ int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<TIAGOController>();
     node->initMoveGroups();
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     rclcpp::executors::MultiThreadedExecutor exec;
     exec.add_node(node);
