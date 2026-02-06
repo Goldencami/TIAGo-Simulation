@@ -17,6 +17,7 @@
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 
 using AttachLink = linkattacher_msgs::srv::AttachLink;
+using DetachLink = linkattacher_msgs::srv::DetachLink;
 using namespace std::chrono_literals;
 
 class TIAGOController : public rclcpp::Node {
@@ -51,7 +52,7 @@ public:
 
         // LinkAttacher client
         attach_client_ = this->create_client<AttachLink>("/ATTACHLINK");
-        detach_client_ = this->create_client<AttachLink>("/DETACHLINK");
+        detach_client_ = this->create_client<DetachLink>("/DETACHLINK");
 
         // attach_client_ = this->create_client<AttachLink>("/ATTACHLINK");
         // RCLCPP_INFO(this->get_logger(), "Waiting for attach service...");
@@ -254,15 +255,15 @@ private:
             return;
         }
 
-        auto request = std::make_shared<AttachLink::Request>();
+        auto request = std::make_shared<DetachLink::Request>();
         request->model1_name = model1;
         request->link1_name = link1;
         request->model2_name = model2;
         request->link2_name = link2;
 
-        auto future = attach_client_->async_send_request(
+        auto future = detach_client_->async_send_request(
             request,
-            [this](rclcpp::Client<AttachLink>::SharedFuture future_response) {
+            [this](rclcpp::Client<DetachLink>::SharedFuture future_response) {
                 auto resp = future_response.get();
                 detach_in_progress_ = false; 
 
@@ -282,15 +283,6 @@ private:
         // Return immediately—DO NOT BLOCK
         RCLCPP_INFO(this->get_logger(), "Detach request sent.");
     }
-
-    // bool grabPose() {
-    //     // This function only sets the pose ready, high above the object.
-    //     // The robot will later reposition itself to be aligned with the object on the z-axis
-    //     if (!setPrePickPose()) return false;
-
-    //     grab_pose_done_ = true;
-    //     return true;
-    // }
 
     bool setPrePickPose() {
         // This function only sets the pose ready, high above the object.
@@ -364,7 +356,7 @@ private:
 
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
     rclcpp::Client<AttachLink>::SharedPtr attach_client_;
-    rclcpp::Client<AttachLink>::SharedPtr detach_client_;
+    rclcpp::Client<DetachLink>::SharedPtr detach_client_;
 
     // services variables
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr lift_arm_srv_;

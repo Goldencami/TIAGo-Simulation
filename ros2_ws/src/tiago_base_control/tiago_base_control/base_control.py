@@ -11,7 +11,7 @@ import math
 MAX_SPEED = 0.7
 GOAL_THR = 0.10 # marging error of distance goal threshold
 ANGLE_THR = 0.05 # marging error of angle when navigating (used to know if TIAGo needs to fix direction)
-LIFT_DIST = 0.70 # used to stop TIAGo and retract arm
+LIFT_DIST = 0.70 # used to stop TIAGo and expand arm
 
 class TiagoBaseControl(Node):
     def __init__(self):
@@ -40,19 +40,19 @@ class TiagoBaseControl(Node):
         self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, ROTATE_90, END
 
         self.tasks = [
-            {'goal': (-0.366636, -0.846681, -0.001331), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
+            {'goal': (-0.366636, -0.841814, 1.570796), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
             {'goal': (5.654795, -2.571507, 0), 'action': 'pick_can'},
-            {'goal': (0.260512, -0.846681, -0.001331), 'action': 'place_can'},
+            {'goal': (-0.695897, -0.841814, 1.570796), 'action': 'place_can'},
             {'goal': (5.654795, -2.571507, 0), 'action': 'pick_cup'},
-            {'goal': (0.398127, -0.846681, -0.001331), 'action': 'place_cup'}
+            {'goal': (0.022772, -0.841814, 1.570796), 'action': 'place_cup'}
         ]
-        self.current_task_idx = 0 # set to 0 after done testing
+        self.current_task_idx = 1 # set to 0 after done testing
         self.target = self.tasks[self.current_task_idx]['goal']
         # new target position when going backwards
         self.backTargetSet = False
 
         # transition states variables
-        self.isArmPosed = False
+        self.isArmPosed = True # set back to False after done testing
         self.isObjectPlaced = False
         self.isObjectPicked = False
         self.timer = self.create_timer(0.1, self.state_machine_loop)
@@ -115,8 +115,9 @@ class TiagoBaseControl(Node):
                 self.get_logger().info(f"Pick_obj response: success={result.success}, message={result.message}")
 
                 if result.success:
-                    self.isArmPosed = False
+                    # self.isArmPosed = False
                     self.isObjectPicked = True
+                    self.isObjectPlaced = False
                     self.get_logger().info(f"New state is: {self.state}")
                 self.pick_obj_future = None
             return
@@ -141,7 +142,7 @@ class TiagoBaseControl(Node):
                 result = self.place_future.result()
                 if result.success:
                     self.isObjectPlaced = True
-                    self.state = 'BACKWARD'
+                    self.isObjectPicked = False
                 self.place_future = None
             return
 
@@ -180,6 +181,7 @@ class TiagoBaseControl(Node):
 
         # rotate TIAGo to face correct direction when moving towards table
         if self.state == 'ROTATE':
+            self.get_logger().info(f"abs(theta_err): {abs(theta_err)}")
             # if theta error is significant, rotate while not moving forward
             if abs(theta_err) > ANGLE_THR:
                 # rotate left or right depending on margin of error
@@ -193,17 +195,22 @@ class TiagoBaseControl(Node):
                 
         # move TIAGo towards table
         elif self.state == 'FORWARD':
+            self.get_logger().info(f"dist_diff: {dist_diff}")
             # as long as TIAG'o is not deviating, continue moving forward
             if abs(theta_err) > ANGLE_THR:
                 self.state = 'ROTATE'
+                self.get_logger().info('ROTATE')
                 twist.linear.x = 0.0
             elif dist_diff <= LIFT_DIST and not self.isArmPosed:
                 self.state = 'POSE_ARM'
+                self.get_logger().info('POSE_ARM')
             elif dist_diff < GOAL_THR:
                 self.state = 'FIX_ANGLE'
+                self.get_logger().info('FIX_ANGLE')
                 twist.linear.x = 0.0
             else:
                 twist.linear.x = 0.5 * MAX_SPEED
+                self.get_logger().info('ELSE')
 
         elif self.state == 'POSE_ARM':
             # not calling it again
@@ -238,6 +245,7 @@ class TiagoBaseControl(Node):
                     self.state = 'PICKUP'
                 elif self.current_task_idx == 2 or self.current_task_idx == 4:
                     self.state = 'PLACE_OBJ'
+                    self.get_logger().info('PLACE_OBJ')
 
         elif self.state == 'PICKUP':
             # stay in PICKUP until done
@@ -261,10 +269,11 @@ class TiagoBaseControl(Node):
             dist = math.sqrt(dx*dx + dy*dy)
 
             if dist > GOAL_THR:
-                if self.state == 'PLACE_OBJ':
-                    twist.linear.y = -0.5 * MAX_SPEED  # move backward straight
-                else:
-                    twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
+                twist.linear.x = -0.5 * MAX_SPEED
+                # if self.state == 'PLACE_OBJ':
+                #     twist.linear.y = -0.5 * MAX_SPEED  # move backward straight
+                # else:
+                #     twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
             else:
                 twist.linear.x = 0.0
                 self.backTargetSet = False
@@ -275,7 +284,7 @@ class TiagoBaseControl(Node):
                 self.get_logger().info(f"current_task_idx: {self.current_task_idx}")
                 self.target = self.tasks[self.current_task_idx]['goal']
 
-                self.isArmPosed = False # TO REVIEW
+                # self.isArmPosed = False # TO REVIEW
                 self.isObjectPicked = False
                 self.isObjectPlaced = False
                 self.backTargetSet = False
