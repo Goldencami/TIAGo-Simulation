@@ -10,6 +10,7 @@
 #include "std_srvs/srv/trigger.hpp"
 #include "gazebo_msgs/msg/model_states.hpp"
 #include "linkattacher_msgs/srv/attach_link.hpp"
+#include "linkattacher_msgs/srv/detach_link.hpp"
 
 // MoveIt 2
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -20,7 +21,8 @@ using namespace std::chrono_literals;
 
 class TIAGOController : public rclcpp::Node {
 public:
-    TIAGOController() : Node("tiago_controller"), object_detected_(false), arm_lifted_(false), grab_pose_done_(false), picked_(false), attach_in_progress_(false) {
+    TIAGOController() : Node("tiago_controller"), object_detected_(false), arm_lifted_(false), 
+        grab_pose_done_(false), picked_(false), attach_in_progress_(false), placed_(false), detach_in_progress_(false) {
         // subscriptions
         model_states_sub_ = this->create_subscription<gazebo_msgs::msg::ModelStates>(
             "/model_states", 10, std::bind(&TIAGOController::modelCallback, this, std::placeholders::_1)
@@ -42,11 +44,24 @@ public:
             this, std::placeholders::_1, std::placeholders::_2)
         );
 
+        place_obj_srv_ = this->create_service<std_srvs::srv::Trigger>(
+            "place_obj", std::bind(&TIAGOController::handlePlaceObjRequest, 
+            this, std::placeholders::_1, std::placeholders::_2)
+        );
+
         // LinkAttacher client
         attach_client_ = this->create_client<AttachLink>("/ATTACHLINK");
-        RCLCPP_INFO(this->get_logger(), "Waiting for attach service...");
-        attach_client_->wait_for_service();
-        RCLCPP_INFO(this->get_logger(), "Attach service available.");
+        detach_client_ = this->create_client<AttachLink>("/DETACHLINK");
+
+        // attach_client_ = this->create_client<AttachLink>("/ATTACHLINK");
+        // RCLCPP_INFO(this->get_logger(), "Waiting for attach service...");
+        // attach_client_->wait_for_service();
+        // RCLCPP_INFO(this->get_logger(), "Attach service available.");
+
+        // detach_client_ = this->create_client<AttachLink>("/DETACHLINK");
+        // RCLCPP_INFO(this->get_logger(), "Waiting for detach service...");
+        // detach_client_->wait_for_service();
+        // RCLCPP_INFO(this->get_logger(), "Detach service available.");
 
         RCLCPP_INFO(this->get_logger(), "TIAGOController node initialized.");
     }
@@ -120,7 +135,7 @@ private:
             return;
         }
 
-        bool success = grabPose();
+        bool success = setPrePickPose();
         response->success = success;
         response->message = success ? "Grab posed successfully!" : "Failed to pose TIAGo.";
     }
@@ -143,7 +158,36 @@ private:
 
         attach_in_progress_ = true;
         pickObject("tiago", "gripper_left_finger_link", "cocacola", "link");
-        // bool success = pickObject("tiago", "gripper_left_finger_link", "cocacola", "link");
+
+        // let client know that it still needs to wait for a response
+        response->success = false;
+        response->message = "Asynchronous started.";
+    }
+
+    void handlePlaceObjRequest(
+        const std::shared_ptr<std_srvs::srv::Trigger::Request>,
+        std::shared_ptr<std_srvs::srv::Trigger::Response> response) {
+
+        if (placed_) {
+            response->success = true;
+            response->message = "Object already placed.";
+            return;      
+        }
+
+        if (!picked_) {
+            response->success = false;
+            response->message = "Nothing to detach.";
+            return;
+        }
+
+        if (detach_in_progress_) {
+            response->success = false;
+            response->message = "Detach in progress";
+            return;
+        }
+
+        detach_in_progress_ = true;
+        placeObject("tiago", "gripper_left_finger_link", "cocacola", "link");
 
         // let client know that it still needs to wait for a response
         response->success = false;
@@ -185,10 +229,8 @@ private:
 
         auto future = attach_client_->async_send_request(
             request,
-            [this](rclcpp::Client<AttachLink>::SharedFuture future_response)
-            {
+            [this](rclcpp::Client<AttachLink>::SharedFuture future_response) {
                 auto resp = future_response.get();
-
                 attach_in_progress_ = false; 
 
                 if (resp->success) {
@@ -203,19 +245,56 @@ private:
 
         // Return immediately—DO NOT BLOCK
         RCLCPP_INFO(this->get_logger(), "Attach request sent.");
-        // return true;
     }
 
-    bool grabPose() {
-        // This function only sets the pose ready, high above the object.
-        // The robot will later reposition itself to be aligned with the object on the z-axis
-        if (!setPrePickPose()) return false;
+    void placeObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
+        if (!detach_client_->wait_for_service(1s)) {
+            RCLCPP_WARN(get_logger(), "Detach service not available yet.");
+            detach_in_progress_ = false;
+            return;
+        }
 
-        grab_pose_done_ = true;
-        return true;
+        auto request = std::make_shared<AttachLink::Request>();
+        request->model1_name = model1;
+        request->link1_name = link1;
+        request->model2_name = model2;
+        request->link2_name = link2;
+
+        auto future = attach_client_->async_send_request(
+            request,
+            [this](rclcpp::Client<AttachLink>::SharedFuture future_response) {
+                auto resp = future_response.get();
+                detach_in_progress_ = false; 
+
+                if (resp->success) {
+                    RCLCPP_INFO(this->get_logger(), "Detach succeeded: %s", resp->message.c_str());
+                    picked_ = false;
+                    placed_ = true;
+                } else {
+                    RCLCPP_ERROR(this->get_logger(), "Detach failed: %s", resp->message.c_str());
+                    placed_ = false;
+                }
+            }
+        );
+
+        // logic to lift arm again
+        if(!setPrePickPose()) return;
+        // Return immediately—DO NOT BLOCK
+        RCLCPP_INFO(this->get_logger(), "Detach request sent.");
     }
+
+    // bool grabPose() {
+    //     // This function only sets the pose ready, high above the object.
+    //     // The robot will later reposition itself to be aligned with the object on the z-axis
+    //     if (!setPrePickPose()) return false;
+
+    //     grab_pose_done_ = true;
+    //     return true;
+    // }
 
     bool setPrePickPose() {
+        // This function only sets the pose ready, high above the object.
+        // The robot will later reposition itself to be aligned with the object on the z-axis
         std::map<std::string, double> arm_goal = {
             {"torso_lift_joint", 0.350},
             {"arm_1_joint", deg2rad(4.0)},
@@ -235,6 +314,7 @@ private:
         if (!moveGroupTo(arm_torso_, arm_goal)) return false;
         if (!moveGroupTo(gripper_, gripper_goal)) return false;
 
+        grab_pose_done_ = true;
         return true;
     }
 
@@ -284,11 +364,13 @@ private:
 
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
     rclcpp::Client<AttachLink>::SharedPtr attach_client_;
+    rclcpp::Client<AttachLink>::SharedPtr detach_client_;
 
     // services variables
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr lift_arm_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr grab_pose_srv_;
     rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr pick_obj_srv_;
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr place_obj_srv_;
 
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> arm_torso_;
     std::shared_ptr<moveit::planning_interface::MoveGroupInterface> gripper_;
@@ -300,6 +382,8 @@ private:
     bool grab_pose_done_;
     bool picked_;
     bool attach_in_progress_;
+    bool placed_;
+    bool detach_in_progress_;
 };
 
 

@@ -33,7 +33,6 @@ class TiagoBaseControl(Node):
         self.pick_obj_future = None
         self.place_future = None
 
-
         # TIAGo's initial position and angle
         self.position = (0.0, 0.0)
         self.theta = 0.0
@@ -56,8 +55,6 @@ class TiagoBaseControl(Node):
         self.isArmPosed = False
         self.isObjectPlaced = False
         self.isObjectPicked = False
-        self.isPickCmdSent = False
-
         self.timer = self.create_timer(0.1, self.state_machine_loop)
 
 
@@ -120,7 +117,6 @@ class TiagoBaseControl(Node):
                 if result.success:
                     self.isArmPosed = False
                     self.isObjectPicked = True
-                    self.isPickCmdSent = False
                     self.get_logger().info(f"New state is: {self.state}")
                 self.pick_obj_future = None
             return
@@ -155,9 +151,6 @@ class TiagoBaseControl(Node):
 
         req = Trigger.Request()
         self.place_future = self.place_obj_client.call_async(req)
-
-    def move_90_degrees(self):
-        
 
     # helper function for states
     def set_move_back_to(self, distance=1.0):
@@ -283,7 +276,10 @@ class TiagoBaseControl(Node):
                 self.current_task_idx += 1
                 self.get_logger().info(f"current_task_idx: {self.current_task_idx}")
                 self.target = self.tasks[self.current_task_idx]['goal']
-                
+
+                self.get_logger().info('Rotating 90 degrees')
+
+
                 self.isArmPosed = False # TO REVIEW
                 self.isObjectPicked = False
                 self.isObjectPlaced = False
