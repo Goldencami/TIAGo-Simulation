@@ -38,7 +38,7 @@ class TiagoBaseControl(Node):
         self.position = (0.0, 0.0)
         self.theta = 0.0
         # TIAGo's states in SM
-        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, RETRACT_ARM, END
+        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, END
 
         self.tasks = [
             {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
@@ -115,10 +115,13 @@ class TiagoBaseControl(Node):
         if self.pick_obj_future:
             if self.pick_obj_future.done():
                 result = self.pick_obj_future.result()
+                self.get_logger().info(f"Pick_obj response: success={result.success}, message={result.message}")
+
                 if result.success:
                     self.isArmPosed = False
                     self.isObjectPicked = True
                     self.isPickCmdSent = False
+                    self.get_logger().info(f"New state is: {self.state}")
                 self.pick_obj_future = None
             return
 
@@ -128,6 +131,13 @@ class TiagoBaseControl(Node):
 
         req = Trigger.Request()
         self.pick_obj_future = self.pick_obj_client.call_async(req)
+
+        # add a callback to get the response immediately when ready
+        self.pick_obj_future.add_done_callback(
+            lambda fut: self.get_logger().info(
+                f"Async callback: success={fut.result().success}, message='{fut.result().message}'"
+            )
+        )
 
     def place_obj_request(self):
         if self.place_future:
@@ -145,6 +155,9 @@ class TiagoBaseControl(Node):
 
         req = Trigger.Request()
         self.place_future = self.place_obj_client.call_async(req)
+
+    def move_90_degrees(self):
+        
 
     # helper function for states
     def set_move_back_to(self, distance=1.0):
@@ -235,9 +248,8 @@ class TiagoBaseControl(Node):
 
         elif self.state == 'PICKUP':
             # stay in PICKUP until done
-            if not self.isObjectPicked and not self.isPickCmdSent:
+            if not self.isObjectPicked:
                 self.pick_obj_request()  # sends request or checks future
-                self.isPickCmdSent = True
             elif self.isObjectPicked:
                 # once done:
                 self.state = 'BACKWARD'

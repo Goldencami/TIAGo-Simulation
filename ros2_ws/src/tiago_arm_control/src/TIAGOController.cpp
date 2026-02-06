@@ -20,7 +20,7 @@ using namespace std::chrono_literals;
 
 class TIAGOController : public rclcpp::Node {
 public:
-    TIAGOController() : Node("tiago_controller"), object_detected_(false), arm_lifted_(false), grab_pose_done_(false), picked_(false) {
+    TIAGOController() : Node("tiago_controller"), object_detected_(false), arm_lifted_(false), grab_pose_done_(false), picked_(false), attach_in_progress_(false) {
         // subscriptions
         model_states_sub_ = this->create_subscription<gazebo_msgs::msg::ModelStates>(
             "/model_states", 10, std::bind(&TIAGOController::modelCallback, this, std::placeholders::_1)
@@ -135,10 +135,19 @@ private:
             return;
         }
 
-        bool success = pickObject("tiago", "gripper_left_finger_link", "cocacola", "link");
+        if (attach_in_progress_) {
+            response->success = false;
+            response->message = "Attach in progress";
+            return;
+        }
 
-        response->success = success;
-        response->message = success ? "Object picked!" : "Pick failed.";
+        attach_in_progress_ = true;
+        pickObject("tiago", "gripper_left_finger_link", "cocacola", "link");
+        // bool success = pickObject("tiago", "gripper_left_finger_link", "cocacola", "link");
+
+        // let client know that it still needs to wait for a response
+        response->success = false;
+        response->message = "Asynchronous started.";
     }
 
     // TIAGO's movements
@@ -160,10 +169,12 @@ private:
         return true;
     }
     
-    bool pickObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
+    void pickObject(const std::string &model1, const std::string &link1, const std::string &model2, const std::string &link2) {
+        if (!lowerForPick()) return;
+
         if (!attach_client_->wait_for_service(2s)) {
             RCLCPP_ERROR(get_logger(), "Attach service unavailable.");
-            return false;
+            return;
         }
 
         auto request = std::make_shared<AttachLink::Request>();
@@ -172,24 +183,33 @@ private:
         request->model2_name = model2;
         request->link2_name = link2;
 
-        auto future = attach_client_->async_send_request(request);
+        auto future = attach_client_->async_send_request(
+            request,
+            [this](rclcpp::Client<AttachLink>::SharedFuture future_response)
+            {
+                auto resp = future_response.get();
 
-        // Wait for future without using another executor
-        auto status = future.wait_for(1s);
-        if (status != std::future_status::ready) {
-            RCLCPP_ERROR(get_logger(), "Attach call timed out.");
-            return false;
-        }
+                attach_in_progress_ = false; 
 
-        RCLCPP_ERROR(this->get_logger(), "Failed to call attach service");
-        picked_ = false;
-        return false;
+                if (resp->success) {
+                    RCLCPP_INFO(this->get_logger(), "Attach succeeded: %s", resp->message.c_str());
+                    picked_ = true;
+                } else {
+                    RCLCPP_ERROR(this->get_logger(), "Attach failed: %s", resp->message.c_str());
+                    picked_ = false;
+                }
+            }
+        );
+
+        // Return immediately—DO NOT BLOCK
+        RCLCPP_INFO(this->get_logger(), "Attach request sent.");
+        // return true;
     }
 
     bool grabPose() {
-
+        // This function only sets the pose ready, high above the object.
+        // The robot will later reposition itself to be aligned with the object on the z-axis
         if (!setPrePickPose()) return false;
-        if (!lowerForPick()) return false;
 
         grab_pose_done_ = true;
         return true;
@@ -279,6 +299,7 @@ private:
     bool arm_lifted_;
     bool grab_pose_done_;
     bool picked_;
+    bool attach_in_progress_;
 };
 
 

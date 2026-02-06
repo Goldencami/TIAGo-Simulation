@@ -43,3 +43,9 @@
 [submodule "ros2_ws/src/pal_robotiq_gripper"]
 	path = ros2_ws/src/pal_robotiq_gripper
 	url = https://github.com/pal-robotics/pal_robotiq_gripper.git
+[submodule "ros2_ws/src/IFRA-Cranfield"]
+	path = ros2_ws/src/IFRA-Cranfield
+	url = https://github.com/IFRA-Cranfield/IFRA_LinkAttacher.git
+[submodule "ros2_ws/src/IFRA_LinkAttacher"]
+	path = ros2_ws/src/IFRA_LinkAttacher
+	url = https://github.com/IFRA-Cranfield/IFRA_LinkAttacher.git
