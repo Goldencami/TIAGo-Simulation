@@ -146,7 +146,7 @@ private:
         if (placed_) {
             response->success = true;
             response->message = "Object already placed.";
-            placed_ = false;
+            placed_ = false; // RESET VALUE TO DETACH NEXT OBJECT
             return;      
         }
 
