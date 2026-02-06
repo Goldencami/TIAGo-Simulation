@@ -270,7 +270,7 @@ class TiagoBaseControl(Node):
                 self.backTargetSet = False
                 self.get_logger().info(f"Ending task: {self.tasks[self.current_task_idx]['action']}")
                 self.current_task_idx += 1
-                if current_task_idx < 5:
+                if self.current_task_idx < 5:
                     self.target = self.tasks[self.current_task_idx]['goal']
 
                 # self.isArmPosed = False # TO REVIEW
