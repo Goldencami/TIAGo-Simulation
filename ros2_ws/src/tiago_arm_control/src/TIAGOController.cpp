@@ -326,7 +326,6 @@ private:
     bool moveGroupTo(
         std::shared_ptr<moveit::planning_interface::MoveGroupInterface> group,
         const std::map<std::string,double>& joints) {
-        std::lock_guard<std::mutex> lock(moveit_mutex_);
 
         group->setJointValueTarget(joints);
 
@@ -350,8 +349,6 @@ private:
     double deg2rad(double deg) {
         return deg * M_PI / 180.0;
     }
-
-    std::mutex moveit_mutex_;
 
     rclcpp::Subscription<gazebo_msgs::msg::ModelStates>::SharedPtr model_states_sub_;
     rclcpp::Client<AttachLink>::SharedPtr attach_client_;
