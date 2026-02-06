@@ -34,10 +34,10 @@ class TiagoBaseControl(Node):
         self.place_future = None
 
         # TIAGo's initial position and angle
-        self.position = (0.0, 0.0)
+        self.position = (0.0, 0.0, 0.0)
         self.theta = 0.0
         # TIAGo's states in SM
-        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, END
+        self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, ROTATE_90, END
 
         self.tasks = [
             {'goal': (-0.600035, 0.013528, 0), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
@@ -59,17 +59,17 @@ class TiagoBaseControl(Node):
 
 
     def curr_position_callback(self, msg):
-        self.position = (msg.pose.pose.position.x, msg.pose.pose.position.y)
+        self.position = (msg.pose.pose.position.x, msg.pose.pose.position.y, msg.pose.pose.position.z)
         r = msg.pose.pose.orientation
         self.theta = math.atan2(2 * (r.w * r.z + r.x * r.y), 1 - 2 * (r.y**2 + r.z**2))
 
     # Helper functions for navigation
     def dest_heading(self):
-        x, y = self.position
+        x, y, _ = self.position
         return math.atan2(self.target[1] - y, self.target[0] - x)
 
     def target_distance(self):
-        x, y = self.position
+        x, y, _ = self.position
         dx = self.target[0] - x
         dy = self.target[1] - y
         return math.sqrt(dx*dx + dy*dy)
@@ -244,17 +244,15 @@ class TiagoBaseControl(Node):
             if not self.isObjectPicked:
                 self.pick_obj_request()  # sends request or checks future
             elif self.isObjectPicked:
-                # once done:
                 self.state = 'BACKWARD'
                 self.set_move_back_to(distance=1.0)
+
         elif self.state == 'PLACE_OBJ':
-            # not calling it again
             if not self.isObjectPlaced:
                 self.place_obj_request()
-                return
-
-            self.state = 'BACKWARD'
-            self.set_move_back_to(distance=1.0)
+            elif self.isObjectPlaced:
+                self.state = 'BACKWARD'
+                self.set_move_back_to(distance=1.0)
 
         elif self.state == 'BACKWARD' and self.backTargetSet:
             self.get_logger().info('Moving backward')
@@ -276,9 +274,6 @@ class TiagoBaseControl(Node):
                 self.current_task_idx += 1
                 self.get_logger().info(f"current_task_idx: {self.current_task_idx}")
                 self.target = self.tasks[self.current_task_idx]['goal']
-
-                self.get_logger().info('Rotating 90 degrees')
-
 
                 self.isArmPosed = False # TO REVIEW
                 self.isObjectPicked = False
