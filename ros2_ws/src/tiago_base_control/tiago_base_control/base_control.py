@@ -5,6 +5,7 @@ from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
 from std_msgs.msg import Bool
 from std_srvs.srv import Trigger
+from tiago_arm_control.srv import PickObject
 import math
 
 # Parameters
@@ -22,10 +23,10 @@ class TiagoBaseControl(Node):
         self.cmd_pub = self.create_publisher(Twist, '/mobile_base_controller/cmd_vel_unstamped', 10)
 
         # clients
-        self.lift_arm_client = self.create_client(Trigger, 'lift_arm')
-        self.grab_pose_client = self.create_client(Trigger, 'grab_pose')
-        self.pick_obj_client = self.create_client(Trigger, 'pick_obj')
-        self.place_obj_client = self.create_client(Trigger, 'place_obj')
+        self.lift_arm_client = self.create_client(Trigger, '/lift_arm')
+        self.grab_pose_client = self.create_client(Trigger, '/grab_pose')
+        self.pick_obj_client = self.create_client(PickObject, '/pick_obj')
+        self.place_obj_client = self.create_client(Trigger, '/place_obj')
 
         # pending requests
         self.lift_future = None
@@ -51,6 +52,10 @@ class TiagoBaseControl(Node):
         # new target position when going backwards
         self.backTargetSet = False
 
+        # keep track of the current object to pick
+        self.objects_list = ['cocacola', 'plastic_cup']
+        self.current_obj_idx = 0
+
         # transition states variables
         self.isArmPosed = True # set back to False after done testing
         self.isObjectPlaced = False
@@ -74,7 +79,7 @@ class TiagoBaseControl(Node):
         dy = self.target[1] - y
         return math.sqrt(dx*dx + dy*dy)
 
-    # helper request functions for state machines
+    # helper request functions for requests
     def lift_arm_request(self):
         if self.lift_future:
             if self.lift_future.done():
@@ -108,33 +113,30 @@ class TiagoBaseControl(Node):
         req = Trigger.Request()
         self.grab_pose_future = self.grab_pose_client.call_async(req)
 
-    def pick_obj_request(self):
-        if self.pick_obj_future:
-            if self.pick_obj_future.done():
-                result = self.pick_obj_future.result()
-                self.get_logger().info(f"Pick_obj response: success={result.success}, message={result.message}")
-
-                if result.success:
-                    # self.isArmPosed = False
-                    self.isObjectPicked = True
-                    self.isObjectPlaced = False
-                    self.get_logger().info(f"New state is: {self.state}")
-                self.pick_obj_future = None
-            return
-
+    def pick_obj_request(self, name):
+        # Wait for the PickObject service
         if not self.pick_obj_client.wait_for_service(timeout_sec=1.0):
             self.get_logger().warn('Waiting for pick_obj service...')
             return
 
-        req = Trigger.Request()
-        self.pick_obj_future = self.pick_obj_client.call_async(req)
+        req = PickObject.Request()
+        req.object_name = name
 
-        # add a callback to get the response immediately when ready
-        self.pick_obj_future.add_done_callback(
-            lambda fut: self.get_logger().info(
-                f"Async callback: success={fut.result().success}, message='{fut.result().message}'"
-            )
-        )
+        # asynchronous service
+        future = self.pick_obj_client.call_async(req)
+
+        # callback when response is ready
+        def callback(fut):
+            res = fut.result()
+            if res is not None:
+                self.get_logger().info(f"PickObject response: success={res.success}, message={res.message}")
+                if res.success:
+                    self.isObjectPicked = True
+                    self.isObjectPlaced = False
+            else:
+                self.get_logger().error("Service call failed")
+
+        future.add_done_callback(callback)
 
     def place_obj_request(self):
         if self.place_future:
@@ -143,6 +145,7 @@ class TiagoBaseControl(Node):
                 if result.success:
                     self.isObjectPlaced = True
                     self.isObjectPicked = False
+                    self.current_obj_idx += 1
                 self.place_future = None
             return
 
@@ -181,7 +184,6 @@ class TiagoBaseControl(Node):
 
         # rotate TIAGo to face correct direction when moving towards table
         if self.state == 'ROTATE':
-            self.get_logger().info(f"abs(theta_err): {abs(theta_err)}")
             # if theta error is significant, rotate while not moving forward
             if abs(theta_err) > ANGLE_THR:
                 # rotate left or right depending on margin of error
@@ -195,22 +197,17 @@ class TiagoBaseControl(Node):
                 
         # move TIAGo towards table
         elif self.state == 'FORWARD':
-            self.get_logger().info(f"dist_diff: {dist_diff}")
             # as long as TIAG'o is not deviating, continue moving forward
             if abs(theta_err) > ANGLE_THR:
                 self.state = 'ROTATE'
-                self.get_logger().info('ROTATE')
                 twist.linear.x = 0.0
             elif dist_diff <= LIFT_DIST and not self.isArmPosed:
                 self.state = 'POSE_ARM'
-                self.get_logger().info('POSE_ARM')
             elif dist_diff < GOAL_THR:
                 self.state = 'FIX_ANGLE'
-                self.get_logger().info('FIX_ANGLE')
                 twist.linear.x = 0.0
             else:
                 twist.linear.x = 0.5 * MAX_SPEED
-                self.get_logger().info('ELSE')
 
         elif self.state == 'POSE_ARM':
             # not calling it again
@@ -245,12 +242,11 @@ class TiagoBaseControl(Node):
                     self.state = 'PICKUP'
                 elif self.current_task_idx == 2 or self.current_task_idx == 4:
                     self.state = 'PLACE_OBJ'
-                    self.get_logger().info('PLACE_OBJ')
 
         elif self.state == 'PICKUP':
             # stay in PICKUP until done
             if not self.isObjectPicked:
-                self.pick_obj_request()  # sends request or checks future
+                self.pick_obj_request(self.objects_list[self.current_obj_idx])  # sends request or checks future
             elif self.isObjectPicked:
                 self.state = 'BACKWARD'
                 self.set_move_back_to(distance=1.0)
@@ -263,26 +259,19 @@ class TiagoBaseControl(Node):
                 self.set_move_back_to(distance=1.0)
 
         elif self.state == 'BACKWARD' and self.backTargetSet:
-            self.get_logger().info('Moving backward')
             dx = self.target[0] - self.position[0]
             dy = self.target[1] - self.position[1]
             dist = math.sqrt(dx*dx + dy*dy)
 
             if dist > GOAL_THR:
                 twist.linear.x = -0.5 * MAX_SPEED
-                # if self.state == 'PLACE_OBJ':
-                #     twist.linear.y = -0.5 * MAX_SPEED  # move backward straight
-                # else:
-                #     twist.linear.x = -0.5 * MAX_SPEED  # move backward straight
             else:
                 twist.linear.x = 0.0
                 self.backTargetSet = False
-                self.get_logger().info('Finished moving backward')
-
                 self.get_logger().info(f"Ending task: {self.tasks[self.current_task_idx]['action']}")
                 self.current_task_idx += 1
-                self.get_logger().info(f"current_task_idx: {self.current_task_idx}")
-                self.target = self.tasks[self.current_task_idx]['goal']
+                if current_task_idx < 5:
+                    self.target = self.tasks[self.current_task_idx]['goal']
 
                 # self.isArmPosed = False # TO REVIEW
                 self.isObjectPicked = False

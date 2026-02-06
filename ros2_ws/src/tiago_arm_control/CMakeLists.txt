@@ -15,72 +15,16 @@ find_package(moveit_core REQUIRED)
 find_package(moveit_common REQUIRED)
 find_package(gazebo_msgs REQUIRED)
 find_package(linkattacher_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
 
-add_executable(lift_arm_control src/lift_arm_control.cpp)
-ament_target_dependencies(lift_arm_control
-  rclcpp
-  std_msgs
-  moveit_ros_planning_interface
-  moveit_msgs
-  moveit_core
-  moveit_common
-  gazebo_msgs
+# generate service files
+rosidl_generate_interfaces(${PROJECT_NAME}
+  "srv/PickObject.srv"
 )
 
-install(
-  TARGETS lift_arm_control
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
+ament_export_dependencies(rosidl_default_runtime)
 
-add_executable(retract_arm_control src/retract_arm_control.cpp)
-ament_target_dependencies(retract_arm_control
-  rclcpp
-  std_msgs
-  moveit_ros_planning_interface
-  moveit_msgs
-  moveit_core
-  moveit_common
-  gazebo_msgs
-)
-
-install(
-  TARGETS retract_arm_control
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
-
-add_executable(grab_pose_control src/grab_pose_control.cpp)
-ament_target_dependencies(grab_pose_control
-  rclcpp
-  std_msgs
-  moveit_ros_planning_interface
-  moveit_msgs
-  moveit_core
-  moveit_common
-  gazebo_msgs
-)
-
-install(
-  TARGETS grab_pose_control
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
-
-add_executable(gripper_control src/gripper_control.cpp)
-ament_target_dependencies(gripper_control
-  rclcpp
-  std_msgs
-  moveit_ros_planning_interface
-  moveit_msgs
-  moveit_core
-  moveit_common
-  gazebo_msgs
-  linkattacher_msgs
-)
-
-install(
-  TARGETS gripper_control
-  RUNTIME DESTINATION lib/${PROJECT_NAME}
-)
-
+# add executable
 add_executable(TIAGOController src/TIAGOController.cpp)
 ament_target_dependencies(TIAGOController
   rclcpp
@@ -91,6 +35,10 @@ ament_target_dependencies(TIAGOController
   moveit_common
   gazebo_msgs
   linkattacher_msgs
+)
+
+rosidl_target_interfaces(TIAGOController
+  ${PROJECT_NAME} "rosidl_typesupport_cpp"
 )
 
 install(

@@ -1,0 +1,6 @@
+# Request
+string object_name
+---
+# Response
+bool success
+string message
