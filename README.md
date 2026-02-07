@@ -39,7 +39,7 @@ source install/setup.bash
 ## Simulation
 ### Start TIAGo Simulation
 ```bash
-ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=sim_world_objects
+ros2 launch tiago_gazebo tiago_gazebo.launch.py is_public_sim:=True world_name:=small_sim_world_obj
 ```
 
 ### Launch exercise
