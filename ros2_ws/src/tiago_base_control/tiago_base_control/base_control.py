@@ -40,11 +40,11 @@ class TiagoBaseControl(Node):
         self.state = 'ROTATE' # ROTATE, FORWARD, POSE_ARM, FIX_ANGLE, PICKUP, PLACE_OBJ, BACKWARD, END
 
         self.tasks = [
-            {'goal': (-0.366636, -0.841814, 1.570796), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
-            {'goal': (5.654795, -2.571507, 0), 'action': 'pick_can'},
-            {'goal': (-0.695897, -0.841814, 1.570796), 'action': 'place_can'},
-            {'goal': (5.654795, -3.044193, 0), 'action': 'pick_cup'},
-            {'goal': (0.022772, -0.841814, 1.570796), 'action': 'place_cup'}
+            {'goal': (-0.012307, -0.764955, 1.570796), 'action': 'move_arm_above_table'}, # goal (x, y, yaw (rad))
+            {'goal': (2.567176, -2.194283, 0), 'action': 'pick_can'},
+            {'goal': (-0.020786, -0.841814, 1.570796), 'action': 'place_can'},
+            {'goal': (2.567176, -2.681158, 0), 'action': 'pick_cup'}, 
+            {'goal': (-0.668791, -0.841814, 1.570796), 'action': 'place_cup'}
         ]
         self.current_task_idx = 0
         self.target = self.tasks[self.current_task_idx]['goal']
